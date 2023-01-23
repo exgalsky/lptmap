@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cat Make.mach.$1 Makefile.gen > Makefile
+

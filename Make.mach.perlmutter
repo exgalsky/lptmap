@@ -1,0 +1,9 @@
+#----------------------------------------------------------------------
+# OPTIONS FOR RUNNING ON PERLMUTTER
+#----------------------------------------------------------------------
+
+OPTIMIZE =  
+FFTW2_PATH = /global/homes/m/malvarez/fftw-2.1.5-prlm
+C++ = CC
+OPTIONS = -w 
+
