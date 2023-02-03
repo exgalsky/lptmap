@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+if __name__ == '__main__':
+    import webskylpt.map2lpt_example as map2lpt_example
+
+    sys.exit(map2lpt.main(args))
+    
