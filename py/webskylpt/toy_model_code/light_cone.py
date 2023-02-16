@@ -3,17 +3,22 @@ import cosmology as cosmo
 import healpy as hp
 import matplotlib.pyplot as plt
 import scipy.constants as cons
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
 from mpi4py import MPI
+from time import time
 
 # MPI communicator initialization
 comm = MPI.COMM_WORLD
 id = comm.Get_rank()            #number of the process running the code
 numProc = comm.Get_size()       #total number of processes running
 
+t0 = time()
 # Setup cosmology workspace on all processes so that class method functions are initialized
 cosmo_wsp = cosmo.cosmology()
 
+t1 = time()
+
+print("Evalutation of cosmology took", t1-t0, "s for Proc ", id)
 # Cube shape is gridx_sz = gridy_sz = gridz_sz, for now, allowing for later change to different x/y/z sizes
 gridx_sz = 128 #6144
 # gridy_sz = 6144
@@ -23,10 +28,11 @@ gridx_sz = 128 #6144
 gridsz_in_Mpc = 7700 / 6144  # in Mpc; 7700 Mpc box length for websky 6144 cube  
 
 # comoving distance to last scattering in Mpc
-comov_lastscatter = 13.8 * 1.e3 # in Mpc
+comov_lastscatter = 13.8 * (cons.giga / cons.mega) # in Mpc
 
 # NSIDE of HEALPix map 
 nside = 128
+npix = hp.nside2npix(nside)
 
 # Effectively \Delta chi, comoving distance interval spacing for LoS integral
 geometric_factor = gridsz_in_Mpc**3. / hp.nside2pixarea(nside)
@@ -34,7 +40,6 @@ geometric_factor = gridsz_in_Mpc**3. / hp.nside2pixarea(nside)
 # Path to displacement fields
 # path2disp = '/pscratch/sd/m/malvarez/websky-displacements/'
 path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
-
 
 
 # Run on root process
@@ -72,15 +77,22 @@ xslab_stop_in_Proc = xslab_start_in_Proc + xslab_per_Proc[id]
 # Compute single precision offset for reading tranche of displacement values
 sp_data_slab_offset = np.sum(xslab_per_Proc[0:id]) * gridx_sz * gridx_sz *  4  # in bytes 
 
+t2 = time()
+
+print("Slab decomposition took", t2-t1, "s for Proc ", id)
+
 # Setup axes for the slab grid
 xaxis = np.arange(xslab_start_in_Proc, xslab_stop_in_Proc, dtype=np.float32)
 yaxis = np.arange(0, gridx_sz, dtype=np.float32)
 zaxis = np.arange(0, gridx_sz, dtype=np.float32) 
 
-# Setup meshgrid for the sl
+# Setup meshgrid for the slab 
 grid_qx, grid_qy, grid_qz = np.meshgrid(xaxis, yaxis, zaxis, indexing='ij')
 # print(grid_qx.shape, grid_qy.shape, grid_qz.shape)
 
+t3 = time()
+print("Grid setup took", t3-t2, "s for Proc ", id)
+# Lagrangian comoving distance grid for the slab
 comov_q = np.sqrt((grid_qx+ 0.5)**2. + (grid_qy+0.5)**2. + (grid_qz+0.5)**2.) * gridsz_in_Mpc
 
 # plt.imshow(comov_q[0,:,:], cmap=plt.cm.Blues, origin='lower')
@@ -88,6 +100,10 @@ comov_q = np.sqrt((grid_qx+ 0.5)**2. + (grid_qy+0.5)**2. + (grid_qz+0.5)**2.) * 
 # plt.colorbar()
 # plt.savefig('./comov_q_proc'+str(id)+'.png')
 
+t4 = time()
+print("Comoving distance q took", t4-t3, "s for Proc ", id)
+
+# Lagrangian redshift grid for the slab
 redshift_q = cosmo_wsp.comoving_distance2z(comov_q)
 
 # plt.imshow(redshift_q[0,:,:], cmap=plt.cm.Blues, origin='lower')
@@ -95,6 +111,10 @@ redshift_q = cosmo_wsp.comoving_distance2z(comov_q)
 # plt.colorbar()
 # plt.savefig('./redshift_lagrangian_proc'+str(id)+'.png')
 
+t5 = time()
+print("Redshift took", t5-t4, "s for Proc ", id)
+
+# Growth factor D grid for the slab
 growthD = cosmo_wsp.growth_factor_D(redshift_q)
 
 # plt.imshow(growthD[0,:,:], cmap=plt.cm.Blues, origin='lower')
@@ -102,20 +122,34 @@ growthD = cosmo_wsp.growth_factor_D(redshift_q)
 # plt.colorbar()
 # plt.savefig('./growthD_proc'+str(id)+'.png')
 
+t6 = time()
+print("Growth factor took", t6-t5, "s for Proc ", id)
+
 del xaxis, yaxis, zaxis
+
+# Compute Euclidean grids. Cleanup unwanted grids
 
 grid_sx = np.fromfile(path2disp+'sx1_n128_bin', count=xslab_per_Proc[id] * gridx_sz * gridx_sz, offset=sp_data_slab_offset, dtype=np.float32).reshape(grid_qx.shape) #sx1_7700Mpc_n6144_nb30_nt16
 grid_Xx = grid_qx + growthD * grid_sx
+
+t7 = time()
+print("Displacement x I/O and Eulerian grid x took", t7-t6, "s for Proc ", id)
 
 del grid_qx, grid_sx
 
 grid_sy = np.fromfile(path2disp+'sy1_n128_bin', count=xslab_per_Proc[id] * gridx_sz * gridx_sz, offset=sp_data_slab_offset, dtype=np.float32).reshape(grid_qy.shape) #sy1_7700Mpc_n6144_nb30_nt16
 grid_Xy = grid_qy + growthD * grid_sy
 
+t8 = time()
+print("Displacement y I/O and Eulerian grid y took", t8-t7, "s for Proc ", id)
+
 del grid_qy, grid_sy
 
 grid_sz = np.fromfile(path2disp+'sz1_n128_bin', count=xslab_per_Proc[id] * gridx_sz * gridx_sz, offset=sp_data_slab_offset, dtype=np.float32).reshape(grid_qz.shape) #sz1_7700Mpc_n6144_nb30_nt16
 grid_Xz = grid_qz + growthD * grid_sz
+
+t9 = time()
+print("Displacement z I/O and Eulerian grid z took", t9-t8, "s for Proc ", id)
 
 del grid_qz, grid_sz
 
@@ -127,48 +161,69 @@ del growthD
 # plt.colorbar()
 # plt.savefig('./comov_X_proc'+str(id)+'.png')
 
-# exit()
-
+# Compute healpix pixel grid from Euclidean x, y, z values
 ipix_grid = hp.vec2pix(nside, grid_Xx.flatten(), grid_Xy.flatten(), grid_Xz.flatten())
 ipix_grid = ipix_grid.reshape((xslab_per_Proc[id], gridx_sz, gridx_sz))
+
+t10 = time()
+print("HPX pixel grid took", t10-t9, "s for Proc ", id)
 
 # plt.imshow(ipix_grid[0,:,:], cmap=plt.cm.rainbow, origin='lower')
 # plt.title('HEALPix pixels process = '+str(id))
 # plt.colorbar()
 # plt.savefig('./HEALPix-pixel_proc'+str(id)+'.png')
 
-# exit()
-# normalization factors are TBD
+# normalization factors fixed! 14/02/2023 
+# W_kappa = a_latt^3 / Omega_pix * (3/2) * Omega_M * (H_0 / c_in_km_per_s)^2 * (1 + z) *(1 - X/X_*) / X
 lensing_kernel_grid = geometric_factor * (3./2.) * cosmo_wsp.params['Omega_m'] * (cosmo_wsp.params['h'] * 100. * cons.kilo / cons.c )**2. * (1 + redshift_q) * (1. - (comov_q/comov_lastscatter)) / comov_q
-mask_comov = comov_q <= np.max(comov_q[0,0,:])
+
+t11 = time()
+print("Lensing kernel grid took", t11-t10, "s for Proc ", id)
+# Mask limiting to constant radius in the cube with origin at (0,0,0) corner.
+# mask_comov = comov_q <= np.max(comov_q[0,0,:])
 
 del redshift_q, comov_q
 
-ipix_unique = np.unique(ipix_grid)
+# Find only the unique pixels to compute over
+# ipix_unique = np.unique(ipix_grid)
 
-def LoS_integration4hpx(kernel, comov_mask):
-    return np.sum(kernel[comov_mask])
+# LoS integral sum function definitions:
+# def LoS_integration4hpx(kernel, comov_mask):
+#     return np.sum(kernel[comov_mask])
 
-def call_LoSinteg(ipix):
-    sel = np.where(ipix_grid.flatten() == ipix)[0]
-    return LoS_integration4hpx(lensing_kernel_grid.flatten()[sel], mask_comov.flatten()[sel])
+# def call_LoSinteg(ipix):
+#     sel = np.where(ipix_grid.flatten() == ipix)[0]
+#     return LoS_integration4hpx(lensing_kernel_grid.flatten()[sel], mask_comov.flatten()[sel])
 
+# # Compute on all available threads for each process
 # kappa_values = Parallel(n_jobs=-1, prefer="threads")(delayed (call_LoSinteg)(pix) for pix in ipix_unique)
-kappa_values = []
-for pix in ipix_unique:
-    kappa_values.append(call_LoSinteg(pix))
 
-del lensing_kernel_grid, mask_comov
 
-kappa_slab = np.zeros(hp.nside2npix(nside))
-kappa_slab[ipix_unique] = kappa_values
+kappa_slab, edges = np.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=lensing_kernel_grid, density=False)
 
+t12 = time()
+print("LoS integral by histogram took", t7-t6, "s for Proc ", id)
+
+del lensing_kernel_grid, edges#, mask_comov
+
+# Map the part LoS integrals to relevant pixels 
+# kappa_slab = np.zeros(hp.nside2npix(nside))
+# kappa_slab[ipix_unique] = kappa_values
+
+# del kappa_values, ipix_unique
+
+# Combine intergals for slabs with reduction
 comm.Reduce([kappa_slab, MPI.DOUBLE], kappa, op=MPI.SUM, root=0)
 
+t13 = time()
+print("Reduce kappa took", t13-t12, "s for Proc ", id)
 del kappa_slab
 
 if id == 0:
-    # hp.savefig('./kappa-map_websky1lpt_nside'+str(nside)+'.fits', kappa, dtype=np.float64)
+    t14 = time()
+    print("Job completion took", t14-t0, "s for Proc ", id)
+    # Save map and plot figure:
+    hp.write_map('./kappa-map_websky1lpt_nside'+str(nside)+'_MPI.fits', kappa, dtype=np.float64, overwrite=True)
     hp.orthview(kappa, rot=[0.,90.,0.], cmap='inferno', half_sky=True, title=r'$\kappa$ map')
     hp.graticule(ls='-', lw=0.25, c='w')
     plt.savefig('./kappa_map_smallcube.png', bbox_inches='tight', pad_inches=0.1)
