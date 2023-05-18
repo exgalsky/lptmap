@@ -148,8 +148,8 @@ for translation in origin_shift:
 
 print("Job completion took", t10-t0, "s ")
 # Save map and plot figure:
-hp.write_map('../output/kappa-map_websky1lpt_nside'+str(nside)+'_768.fits', skymap, dtype=np.float64, overwrite=True)
+hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768.fits', skymap, dtype=np.float64, overwrite=True)
 fig = plt.figure(figsize=(6,4), dpi=600)
 hp.mollview(skymap, cmap=plt.cm.Spectral_r, min=0., max=2., title=r'$\kappa$ map', fig=fig.number, xsize=3000)
 hp.graticule(ls='-', lw=0.25, c='k')
-plt.savefig('../output/kappa_map_jax_768.png', bbox_inches='tight', pad_inches=0.1)
+plt.savefig('./output/kappa_map_jax_768.png', bbox_inches='tight', pad_inches=0.1)
