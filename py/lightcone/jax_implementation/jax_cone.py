@@ -38,7 +38,8 @@ geometric_factor = lattice_size_in_Mpc**3. / solidang_pix
 
 # Path to displacement fields
 # path2disp = '/pscratch/sd/m/malvarez/websky-displacements/'
-path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
+# path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
+path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
 
 t2 = time()
 # Setup axes for the slab grid
@@ -125,7 +126,7 @@ for translation in origin_shift:
 
 
     # Compute healpix pixel grid from Euclidean x, y, z values
-    ipix_grid = jhp.vec2pix(nside, grid_Xx, grid_Xy, grid_Xz)
+    ipix_grid = jhp.vec2pix(nside, grid_Xz, grid_Xy, grid_Xx)
     del grid_Xx, grid_Xy, grid_Xz
 
     t8 = time()
