@@ -14,12 +14,6 @@ try:
 except:
     ccl_present = False 
 
-# try:
-#     import colossus as col 
-#     col_present = True
-# except:
-#     col_present = False 
-
 try:
     import camb 
     camb_present = True
@@ -147,14 +141,6 @@ class cosmology:
         #     for i, common_key in  enumerate(ccl_paramset[0]):
         #         self.ccl_params[ccl_paramset[1][i]] = self.params[common_key]
         #     self.ccl_wsp = ccl.Cosmology(**self.ccl_params)
-
-        # if self.params['backend'].upper() == 'CLASS':
-        #     _z_grid = np.logspace(-3, 3, num=1000) 
-        #     # _comoving_dist= np.empty(self.z_for_comov.shape)
-        #     # for i, z in enumerate(_z_for_comov):
-        #         # _comoving_dist[i] = self.class_wsp.comoving_distance(z)
-        #     _comoving_dist = Parallel(n_jobs=-2, prefer="threads")(delayed (self.class_wsp.comoving_distance)(z) for z in _z_grid)
-        #     _growth_factor = Parallel(n_jobs=-2, prefer="threads")(delayed (self.class_wsp.scale_independent_growth_factor)(z) for z in _z_grid)
 
         self.__z2comov_interpol = interp1d(_z_grid,_comoving_dist, kind='linear', bounds_error=False, fill_value="extrapolate")
         self.__comov2z_interpol = interp1d(_comoving_dist,_z_grid, kind='linear', bounds_error=False, fill_value="extrapolate")

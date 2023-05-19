@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import scipy.constants as cons
 from time import time
 
-run_with_mpi = False
+run_with_mpi = True
 if run_with_mpi:
     try: 
         from mpi4py import MPI
