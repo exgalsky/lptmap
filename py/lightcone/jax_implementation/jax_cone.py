@@ -21,8 +21,8 @@ zmax                  = 4.5   # maximum redshift for projection (=4.50 for websk
 
 # Paths to displacement fields
 # path2disp = '/pscratch/sd/m/malvarez/websky-displacements/'
-# path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
-path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
+path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
+# path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
 sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16_no768'
 syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16_no768'
 szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16_no768'
@@ -89,7 +89,7 @@ def lensing_kernel_F(comov_q_i, redshift_i):
     return geometric_factor * (3./2.) * cosmo_wsp.params['Omega_m'] * (cosmo_wsp.params['h'] * 100. * cons.kilo / cons.c )**2. * (1 + redshift_i) * (1. - (comov_q_i/comov_lastscatter)) / comov_q_i
 
 def read_displacement(filename):
-    return np.fromfile(filename, count=grid_nside * grid_nside * grid_nside, dtype=jnp.float32).reshape(grid_qx.shape)
+    return jnp.asarray(np.fromfile(filename, count=grid_nside * grid_nside * grid_nside, dtype=jnp.float32).reshape(grid_qx.shape), dtype=jnp.float32)
 
 t3b = time()
 print("Jit compilation took", t3b-t3, "s ")
@@ -100,9 +100,6 @@ if store_displacements:
     grid_sx = read_displacement(sxfile)
     grid_sy = read_displacement(syfile)
     grid_sz = read_displacement(szfile)
-    grid_sx = jnp.asarray(grid_sx)
-    grid_sy = jnp.asarray(grid_sy)
-    grid_sz = jnp.asarray(grid_sz)
 
 t3b = time()
 print("I/O took", t3b-t3, "s ")
@@ -147,7 +144,7 @@ for translation in origin_shift:
     t9 = time() ; print("Kernel grid (Eulerian) took", t9-t8, "s ")
 
     skymap += np.asarray(jnp.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=kernel_sphere, density=False)[0])
-    del ipix_grid, kernel_sphere
+    del ipix_grid
 
     t10 = time() ; print("Project to healpix (Eulerian) took", t10-t9, "s ")
 
@@ -156,20 +153,16 @@ for translation in origin_shift:
 
     t11 = time() ; print("HPX pixel grid (Lagrangian) took", t11-t10, "s ")
 
-    kernel_sphere = jnp.where((lagrange_grid >= chimin) & (lagrange_grid <= chimax), jax.vmap(lensing_kernel_F)(lagrange_grid, redshift_grid), 0.)
-
-    t12 = time() ; print("Kernel grid (Lagrangian) took", t12-t11, "s ")
-
     skymap += np.asarray(jnp.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=-kernel_sphere, density=False)[0])
     del lagrange_grid, kernel_sphere, ipix_grid
 
-    t13 = time()
-    print("Project to healpix (Lagrangian) took", t13-t12, "s ")
+    t12 = time()
+    print("Project to healpix (Lagrangian) took", t12-t11, "s ")
 
-print("Job completion took", t13-t0, "s ")
+print("Job completion took", t12-t0, "s ")
 # Save map and plot figure:
-hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768.fits', skymap, dtype=np.float64, overwrite=True)
+hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768_holesremoved.fits', skymap, dtype=np.float64, overwrite=True)
 fig = plt.figure(figsize=(6,4), dpi=600)
 hp.mollview(skymap, cmap=plt.cm.Spectral_r, min=0., max=2., title=r'$\kappa$ map', fig=fig.number, xsize=3000)
 hp.graticule(ls='-', lw=0.25, c='k')
-plt.savefig('./output/kappa_map_jax_768.png', bbox_inches='tight', pad_inches=0.1)
+plt.savefig('./output/kappa_map_jax_768_holesremoved.png', bbox_inches='tight', pad_inches=0.1)
