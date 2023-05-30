@@ -144,7 +144,7 @@ for translation in origin_shift:
     t9 = time() ; print("Kernel grid (Eulerian) took", t9-t8, "s ")
 
     skymap += np.asarray(jnp.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=kernel_sphere, density=False)[0])
-    del ipix_grid
+    del ipix_grid, kernel_sphere
 
     t10 = time() ; print("Project to healpix (Eulerian) took", t10-t9, "s ")
 
@@ -153,13 +153,17 @@ for translation in origin_shift:
 
     t11 = time() ; print("HPX pixel grid (Lagrangian) took", t11-t10, "s ")
 
+    kernel_sphere = jnp.where((lagrange_grid >= chimin) & (lagrange_grid <= chimax), jax.vmap(lensing_kernel_F)(lagrange_grid, redshift_grid), 0.)
+
+    t12 = time() ; print("Kernel grid (Lagrangian) took", t12-t11, "s ")
+
     skymap += np.asarray(jnp.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=-kernel_sphere, density=False)[0])
     del lagrange_grid, kernel_sphere, ipix_grid
 
-    t12 = time()
-    print("Project to healpix (Lagrangian) took", t12-t11, "s ")
+    t13 = time()
+    print("Project to healpix (Lagrangian) took", t13-t12, "s ")
 
-print("Job completion took", t12-t0, "s ")
+print("Job completion took", t13-t0, "s ")
 # Save map and plot figure:
 hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768_holesremoved.fits', skymap, dtype=np.float64, overwrite=True)
 fig = plt.figure(figsize=(6,4), dpi=600)
