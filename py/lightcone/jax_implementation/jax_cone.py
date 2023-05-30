@@ -38,8 +38,8 @@ geometric_factor = lattice_size_in_Mpc**3. / solidang_pix
 
 # Path to displacement fields
 # path2disp = '/pscratch/sd/m/malvarez/websky-displacements/'
-# path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
-path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
+path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
+# path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
 
 t2 = time()
 # Setup axes for the slab grid
@@ -127,22 +127,38 @@ for translation in origin_shift:
 
     # Compute healpix pixel grid from Euclidean x, y, z values
     ipix_grid = jhp.vec2pix(nside, grid_Xz, grid_Xy, grid_Xx)
+
+    euclid_grid = jnp.sqrt(grid_Xx**2. + grid_Xy**2. + grid_Xz**2.)
+
     del grid_Xx, grid_Xy, grid_Xz
 
     t8 = time()
     print("HPX pixel grid took", t8-t7, "s ")
 
-    # kernel_grid = 
-    kernel_sphere = jnp.where(lagrange_grid <= L_box, jax.vmap(lensing_kernel_F)(lagrange_grid, redshift_grid), 0.)
+    # kernel_grid computation (with added constraint of box size) 
+    kernel_sphere = jnp.where(euclid_grid <= L_box, jax.vmap(lensing_kernel_F)(lagrange_grid, redshift_grid), 0.)
+    del euclid_grid
 
     t9 = time()
     print("Kernel grid took", t9-t8, "s ")
 
     hpxmap, edges = jnp.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=kernel_sphere, density=False)
+    del ipix_grid, edges 
 
     skymap += np.asarray(hpxmap)
 
-    del hpxmap, edges
+    del hpxmap
+
+    # Compute healpix pixel grid from Euclidean x, y, z values
+    ipix_grid_lag = jhp.vec2pix(nside, (grid_qz + 0.5 + translation[2])*lattice_size_in_Mpc, (grid_qy + 0.5 + translation[1])*lattice_size_in_Mpc, (grid_qx + 0.5 + translation[0])*lattice_size_in_Mpc)
+
+    kernel_sphere = jnp.where(lagrange_grid <= L_box, jax.vmap(lensing_kernel_F)(lagrange_grid, redshift_grid), 0.)
+    hpxmap_lag, edges = jnp.histogram(ipix_grid_lag, bins=npix, range=(-0.5,npix-0.5), weights=-kernel_sphere, density=False)
+    del lagrange_grid, kernel_sphere, edges, ipix_grid_lag
+
+    skymap += np.asarray(hpxmap_lag)
+
+    del hpxmap_lag
 
     t10 = time()
     print("Project to healpix took", t10-t9, "s ")
@@ -151,6 +167,6 @@ print("Job completion took", t10-t0, "s ")
 # Save map and plot figure:
 hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768.fits', skymap, dtype=np.float64, overwrite=True)
 fig = plt.figure(figsize=(6,4), dpi=600)
-hp.mollview(skymap, cmap=plt.cm.Spectral_r, min=0., max=2., title=r'$\kappa$ map', fig=fig.number, xsize=3000)
+hp.mollview(skymap, cmap=plt.cm.Spectral_r, min=-0.1, max=0.1, title=r'$\kappa$ map', fig=fig.number, xsize=3000)
 hp.graticule(ls='-', lw=0.25, c='k')
 plt.savefig('./output/kappa_map_jax_768.png', bbox_inches='tight', pad_inches=0.1)
