@@ -82,7 +82,7 @@ def comoving_q(x_i, y_i, z_i, trans_vec, Dgrid_in_Mpc):
 
 @partial(jax.jit, static_argnames=['Dgrid_in_Mpc', 'trans'])
 def euclid_i(q_i, s_i, growth_i, Dgrid_in_Mpc, trans):
-    return q_i * Dgrid_in_Mpc + growth_i * s_i + 0.5 + trans*Dgrid_in_Mpc
+    return (q_i + 0.5 + trans) * Dgrid_in_Mpc + growth_i * s_i
 
 @jax.jit
 def lensing_kernel_F(comov_q_i, redshift_i):
@@ -162,6 +162,8 @@ for translation in origin_shift:
 
     t13 = time()
     print("Project to healpix (Lagrangian) took", t13-t12, "s ")
+
+del grid_qx, grid_qy, grid_qz
 
 print("Job completion took", t13-t0, "s ")
 # Save map and plot figure:
