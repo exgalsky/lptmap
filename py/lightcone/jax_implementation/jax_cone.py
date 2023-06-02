@@ -4,6 +4,7 @@ import healpy as hp
 import jax_healpix as jhp
 import matplotlib.pyplot as plt
 import scipy.constants as cons
+import os, sys
 # from mpi4py import MPI
 # import mpi4jax as mjx
 from functools import partial
@@ -20,9 +21,11 @@ zmin                  = 0.05  # minimum redshift for projection (=0.05 for websk
 zmax                  = 4.5   # maximum redshift for projection (=4.50 for websky products)
 
 # Paths to displacement fields
-# path2disp = '/pscratch/sd/m/malvarez/websky-displacements/'
-path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
-# path2disp = '/global/cfs/cdirs/m3058/malvarez/websky-displacements/'
+try:
+    path2disp = os.environ['LPT_DISPLACEMENTS_PATH']
+except:
+    print("LPT_DISPLACEMENTS_PATH not set, exiting...")
+    sys.exit(1)
 sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16_no768'
 syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16_no768'
 szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16_no768'
@@ -167,7 +170,7 @@ del grid_qx, grid_qy, grid_qz
 
 print("Job completion took", t13-t0, "s ")
 # Save map and plot figure:
-hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768_holesremoved.fits', skymap, dtype=np.float64, overwrite=True)
+hp.write_map('./output/kappa-map_websky1lpt_nside'+str(nside)+'_768.fits', skymap, dtype=np.float64, overwrite=True)
 fig = plt.figure(figsize=(6,4), dpi=600)
 hp.mollview(skymap, cmap=plt.cm.Spectral_r, min=0., max=2., title=r'$\kappa$ map', fig=fig.number, xsize=3000)
 hp.graticule(ls='-', lw=0.25, c='k')
