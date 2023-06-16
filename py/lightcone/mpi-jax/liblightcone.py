@@ -5,6 +5,7 @@ import kernel_lib as kl
 from functools import partial
 import jax
 import jax.numpy as jnp
+from tqdm import tqdm
 
 
 
@@ -126,9 +127,9 @@ class lightcone_workspace():
         jax_iterator = backend.get_iterator()
         obs_map = np.zeros((self.npix,))
 
-        for iter in jax_iterator:
+        for iter in tqdm(jax_iterator, ncols=120):
 
-            print(iter)
+            print(f"start, stop, offset, shape: { iter }")
             
             grid_sx = _read_displacement(dispfilenames[0], iter[3], iter[2])
             grid_sy = _read_displacement(dispfilenames[1], iter[3], iter[2])

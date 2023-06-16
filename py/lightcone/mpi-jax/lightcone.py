@@ -17,9 +17,9 @@ map_nside             = 1024
 force_no_mpi          = False 
 force_no_gpu          = False
 
-print("LIGHTCONE: Setting backend...")
+print(f"LIGHTCONE: Setting backend...")
 backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
-print("LIGHTCONE: Backend configuration complete.")
+print(f"LIGHTCONE: Backend configuration complete.")
 
 # Paths to displacement fields
 try:
