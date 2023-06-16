@@ -47,7 +47,7 @@ class jax_handler:
             jax.distributed.initialize(local_device_ids=self.gpus[0].id)
 
         jax.config.update("jax_enable_x64", True)
-        print(jax_local_device())
+        print(f"JAX backend device set to: { jax_local_device() }")
             
 
 

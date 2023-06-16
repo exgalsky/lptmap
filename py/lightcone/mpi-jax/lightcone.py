@@ -17,7 +17,9 @@ map_nside             = 1024
 force_no_mpi          = False 
 force_no_gpu          = False
 
+print("LIGHTCONE: Setting backend...")
 backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
+print("LIGHTCONE: Backend configuration complete.")
 
 # Paths to displacement fields
 try:
@@ -25,18 +27,27 @@ try:
 except:
     path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
 
+print(f"LIGHTCONE: Path to displacement files set to {path2disp}")
+
 sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16_no768'
 syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16_no768'
 szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16_no768'
 
-cosmo_wsp = cosmo.cosmology()
 
+print(f"LIGHTCONE: Computing cosmology...")
+cosmo_wsp = cosmo.cosmology()
+print(f"LIGHTCONE: Cosmology computed")
+
+print(f"LIGHTCONE: Setting up lightcone workspace...")
 lpt_wsp = llc.lightcone_workspace(cosmo_wsp, grid_nside, map_nside, L_box, zmin, zmax)
 
+print(f"LIGHTCONE: Computing LPT to kappa map...")
 kappa_map = lpt_wsp.lpt2map([sxfile, syfile, szfile], backend, bytes_per_cell=4)
+print(f"LIGHTCONE: Kappa map computed. Saving to file.")
+
 
 backend.mpi_backend.writemap2file(kappa_map, f'./kappa_map_grid-{ grid_nside }_nside-{ map_nside }.fits')
-
+print(f"LIGHTCONE: Kappa map saved. Exiting...")
 
 
 
