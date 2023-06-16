@@ -24,7 +24,7 @@ class jax_handler:
         
         if force_no_gpu: 
             os.environ["JAX_PLATFORM_NAME"] = "cpu"
-            import psutil
+            
         else:
             try:
                 import GPUtil
@@ -32,7 +32,7 @@ class jax_handler:
                 self.gpus = GPUtil.getGPUs()
                 
             except:
-                import psutil
+                
                 print("GPUtil not found. Assuming no GPUs are presentent and falling back to CPU.")
                 print("If GPUs are present then ensure GPUtil is installed to intialize JAX on the GPU.")
                 
