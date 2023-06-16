@@ -60,8 +60,13 @@ class jax_handler:
             
             gpus = GPUtil.getGPUs()
             GPUmem = gpus[0].memoryTotal * 1024**2 # MB --> bytes
-            self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem))
-
+            # HARDCODED PARAMETER -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
+            perlmutter_empirical_a100_overhead_factor = 0.5
+            self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem / perlmutter_empirical_a100_overhead_factor))
+            print(f"  n_jaxcalls = {self.n_jaxcalls}"+
+                f"\n  total_memory_required = {total_memory_required}"+
+                f"\n  GPUmem = {GPUmem}"+
+                f"\n  perlmutter_empirical_a100_overhead_factor = {perlmutter_empirical_a100_overhead_factor}")
         else:
             import psutil
             mem = psutil.virtual_memory().total

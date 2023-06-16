@@ -123,7 +123,11 @@ class lightcone_workspace():
     def lpt2map(self, dispfilenames, backend, bytes_per_cell=4):        #kernel_list, 
 
         data_shape = (self.grid_nside, self.grid_nside, self.grid_nside)
-        backend.datastream_setup(data_shape, bytes_per_cell, 44, 1.5, decom_type='slab', divide_axis=0)
+        # HARDCODED PARAMETERS -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
+        # jax reports 73 GB for 768^3 on Perlmutter; accounting for an overhead of 1.5, this is peak_per_cell_memory = 115
+        peak_per_cell_memory = 115.0
+        jax_overhead_factor  = 1.5
+        backend.datastream_setup(data_shape, bytes_per_cell, peak_per_cell_memory, jax_overhead_factor, decom_type='slab', divide_axis=0)
         jax_iterator = backend.get_iterator()
         obs_map = np.zeros((self.npix,))
 
