@@ -1,2 +1,5 @@
 __pycache__/
 validation
+memory_profile-bk.log
+mprofile_*
+

@@ -1,0 +1,143 @@
+Filename: py_cone.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    40    282.8 MiB    282.8 MiB           1   @profile(stream=memfile)
+    41                                         def light_cone():
+    42                                             # Lattice spacing (a_latt in Websky parlance) in Mpc
+    43    282.8 MiB      0.0 MiB           1       lattice_size_in_Mpc = L_box / grid_nside  # in Mpc; 7700 Mpc box length for websky 6144 cube  
+    44                                         
+    45                                             # comoving distance to last scattering in Mpc
+    46    282.8 MiB      0.0 MiB           1       comov_lastscatter = comov_lastscatter_Gpc * (cons.giga / cons.mega) # in Mpc
+    47                                         
+    48                                             # minimum and maximum radii of projection
+    49    317.3 MiB     34.5 MiB           1       chimin = cosmo_wsp.comoving_distance(zmin)
+    50    317.3 MiB      0.0 MiB           1       chimax = cosmo_wsp.comoving_distance(zmax)
+    51                                         
+    52    317.3 MiB      0.0 MiB           1       print("chimin, chimax: ",chimin,chimax)
+    53                                             # NSIDE of HEALPix map 
+    54    317.3 MiB      0.0 MiB           1       nside = 1024
+    55    317.3 MiB      0.0 MiB           1       npix = hp.nside2npix(nside)
+    56    317.3 MiB      0.0 MiB           1       solidang_pix = 4*np.pi / npix
+    57                                         
+    58                                             # Effectively \Delta chi, comoving distance interval spacing for LoS integral
+    59    317.3 MiB      0.0 MiB           1       geometric_factor = lattice_size_in_Mpc**3. / solidang_pix
+    60                                         
+    61                                         
+    62                                             # Setup axes for the slab grid
+    63    317.3 MiB      0.0 MiB           1       xaxis = np.arange(0, grid_nside, dtype=np.int16)
+    64    317.3 MiB      0.0 MiB           1       yaxis = np.arange(0, grid_nside, dtype=np.int16)
+    65    317.3 MiB      0.0 MiB           1       zaxis = np.arange(0, grid_nside, dtype=np.int16)
+    66                                         
+    67                                             # Setup meshgrid for the slab 
+    68                                             # grid_qx, grid_qy, grid_qz = jnp.meshgrid(xaxis, yaxis, zaxis, indexing='ij')        # 6 : 6
+    69                                         
+    70                                             # del xaxis, yaxis, zaxis
+    71                                         
+    72    317.3 MiB      0.0 MiB           1       skymap = np.zeros((npix,))    
+    73    317.3 MiB      0.0 MiB           1       shift_param = grid_nside
+    74    317.3 MiB      0.0 MiB           1       origin_shift = [(0,0,0)]#, (-shift_param,0,0), (0,-shift_param,0), (-shift_param,-shift_param,0),
+    75                                                             #(0,0,-shift_param), (-shift_param,0,-shift_param), (0,-shift_param,-shift_param), (-shift_param,-shift_param,-shift_param)]
+    76    317.3 MiB      0.0 MiB           1       t2 = time() ; print("Initial setup took", t2-t1, "s ")
+    77                                         
+    78                                             # Lagrangian comoving distance grid for the slab
+    79   5501.3 MiB      0.0 MiB           2       def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
+    80  10685.3 MiB   5184.0 MiB           1           return np.meshgrid( np.float32((x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc), np.float32((y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc), np.float32((z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc), indexing='ij')
+    81                                         
+    82                                         
+    83  10685.3 MiB      0.0 MiB           2       def comoving_q(x_i, y_i, z_i, trans_vec, Dgrid_in_Mpc):
+    84  12413.6 MiB   1728.3 MiB           1           return np.sqrt(x_i**2. + y_i**2. + z_i**2.)
+    85                                                 # return jnp.sqrt((x_i + 0.5 + trans_vec[0])**2. + (y_i + 0.5 + trans_vec[1])**2. + (z_i + 0.5 + trans_vec[2])**2.) * Dgrid_in_Mpc
+    86                                         
+    87  19302.7 MiB      0.0 MiB           4       def euclid_i(q_i, s_i, growth_i, Dgrid_in_Mpc, trans):
+    88  19302.7 MiB   1728.2 MiB           3           return q_i + growth_i * s_i 
+    89                                                 # return q_i * Dgrid_in_Mpc + growth_i * s_i + 0.5 + trans*Dgrid_in_Mpc
+    90                                         
+    91  18901.9 MiB   -429.0 MiB           3       def lensing_kernel_F(comov_q_i, redshift_i):
+    92  20631.9 MiB  -1325.2 MiB           2           return geometric_factor * (3./2.) * cosmo_wsp.params['Omega_m'] * (cosmo_wsp.params['h'] * 100. * cons.kilo / cons.c )**2. * (1 + redshift_i) * (1. - (comov_q_i/comov_lastscatter)) / comov_q_i
+    93                                         
+    94   3773.3 MiB      0.0 MiB           4       def read_displacement(filename):
+    95   5501.3 MiB   5184.0 MiB           3           return np.asarray(np.fromfile(filename, count=grid_nside * grid_nside * grid_nside, dtype=np.float32).reshape((grid_nside, grid_nside, grid_nside)), dtype=np.float32)
+    96                                         
+    97    317.3 MiB      0.0 MiB           1       t3 = time() ; print("Jit compilation took", t3-t2, "s ")
+    98                                         
+    99                                         
+   100    317.3 MiB      0.0 MiB           1       store_displacements=True
+   101    317.3 MiB      0.0 MiB           1       if store_displacements:
+   102   2045.3 MiB      0.0 MiB           1           grid_sx = read_displacement(sxfile)     # 4 : 10
+   103   3773.3 MiB      0.0 MiB           1           grid_sy = read_displacement(syfile)     # 4 : 14
+   104   5501.3 MiB      0.0 MiB           1           grid_sz = read_displacement(szfile)     # 4 : 18
+   105                                         
+   106   5501.3 MiB      0.0 MiB           1       t4 = time() ; print("I/O took", t4-t3, "s ")
+   107                                         
+   108   8934.7 MiB      0.0 MiB           2       for translation in origin_shift:
+   109                                         
+   110   5501.3 MiB      0.0 MiB           1           t4 = time()
+   111   5501.3 MiB      0.0 MiB           1           print(translation)
+   112                                         
+   113  10685.3 MiB      0.0 MiB           1           grid_qx, grid_qy, grid_qz = lagrange_mesh(xaxis, yaxis, zaxis, translation, lattice_size_in_Mpc)
+   114                                         
+   115  10685.3 MiB      0.0 MiB           1           t5 = time() ; print("Largrangian meshgrid took", t5 - t4, "s ")
+   116                                         
+   117  12413.6 MiB      0.0 MiB           1           lagrange_grid = comoving_q(grid_qx, grid_qy, grid_qz, translation, lattice_size_in_Mpc)    # 4 : 22
+   118                                         
+   119  12413.6 MiB      0.0 MiB           1           t6 = time() ; print("Lagrangian comoving distance grid took", t6 - t5, "s ")
+   120  14146.9 MiB   1733.3 MiB           1           redshift_grid = cosmo_wsp.comoving_distance2z(lagrange_grid)      # 4 : 26
+   121                                         
+   122  14146.9 MiB      0.0 MiB           1           t7 = time() ; print("Redshift took", t7-t6, "s ")
+   123                                                 # Compute healpix pixel grid from Lagrangian x, y, z values
+   124  17603.0 MiB   3456.0 MiB           1           ipix_grid = hp.vec2pix(nside, grid_qz, grid_qy, grid_qx)    # 8 : 38
+   125                                         
+   126  17603.0 MiB      0.0 MiB           1           t8 = time() ; print("HPX pixel grid (Lagrangian) took", t8-t7, "s ")
+   127                                         
+   128  20631.9 MiB      0.0 MiB           1           kernel_sphere = np.where((lagrange_grid >= chimin) & (lagrange_grid <= chimax), lensing_kernel_F(lagrange_grid, redshift_grid), 0.)      # 4 : 42
+   129                                         
+   130  20631.9 MiB      0.0 MiB           1           t9 = time() ; print("Kernel grid (Lagrangian) took", t9-t8, "s ")
+   131                                         
+   132  21030.5 MiB    398.6 MiB           1           skymap += np.asarray(np.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=-kernel_sphere, density=False)[0])      
+   133  15846.5 MiB  -5184.0 MiB           1           del kernel_sphere, ipix_grid         # -20 : 22
+   134                                         
+   135  15846.5 MiB      0.0 MiB           1           t10 = time() ; print("Project to healpix (Lagrangian) took", t10-t9, "s ")
+   136                                         
+   137  17574.5 MiB   1728.0 MiB           1           growth_grid = cosmo_wsp.growth_factor_D(redshift_grid)        #   4 : 30
+   138                                         
+   139  17574.5 MiB      0.0 MiB           1           t11 = time() ; print("Growth took", t11-t10, "s ")
+   140                                         
+   141  17574.5 MiB      0.0 MiB           1           if not store_displacements: grid_sx = read_displacement(sxfile)
+   142  19302.7 MiB      0.0 MiB           1           grid_Xx = euclid_i(grid_qx, grid_sx, growth_grid, lattice_size_in_Mpc, translation[0])     # 4 : 34
+   143  19302.7 MiB      0.0 MiB           1           del grid_qx
+   144  19302.7 MiB      0.0 MiB           1           if not store_displacements: del grid_sx
+   145                                         
+   146  19302.7 MiB      0.0 MiB           1           if not store_displacements: grid_sy = read_displacement(syfile)
+   147  19302.7 MiB      0.0 MiB           1           grid_Xy = euclid_i(grid_qy, grid_sy, growth_grid, lattice_size_in_Mpc, translation[1])     # 4 : 38
+   148  19302.7 MiB      0.0 MiB           1           del grid_qy
+   149  19302.7 MiB      0.0 MiB           1           if not store_displacements: del grid_sy
+   150                                         
+   151  19302.7 MiB      0.0 MiB           1           if not store_displacements: grid_sz = read_displacement(szfile)
+   152  19302.7 MiB      0.0 MiB           1           grid_Xz = euclid_i(grid_qz, grid_sz, growth_grid, lattice_size_in_Mpc, translation[2])     # 4 : 42
+   153  17574.7 MiB  -1728.0 MiB           1           del grid_qz, growth_grid
+   154  17574.7 MiB      0.0 MiB           1           if not store_displacements: del grid_sz
+   155                                         
+   156  17574.7 MiB      0.0 MiB           1           t12 = time() ; print("Displacements took", t12-t11, "s ")
+   157                                         
+   158                                                 # Compute healpix pixel grid from Euclidean x, y, z values
+   159  21030.7 MiB   3456.0 MiB           1           ipix_grid = hp.vec2pix(nside, grid_Xz, grid_Xy, grid_Xx)   # 8 : 50 
+   160  15846.7 MiB  -5184.0 MiB           1           del grid_Xx, grid_Xy, grid_Xz               # -12 : 38
+   161                                         
+   162  15846.7 MiB      0.0 MiB           1           t13 = time() ; print("HPX pixel grid (Eulerian) took", t13-t12, "s ")
+   163                                         
+   164  15846.7 MiB  -4785.2 MiB           1           kernel_sphere = np.where((lagrange_grid >= chimin) & (lagrange_grid <= chimax), lensing_kernel_F(lagrange_grid, redshift_grid), 0.)      # 4 : 42
+   165  14118.7 MiB  -1728.0 MiB           1           del lagrange_grid, redshift_grid
+   166                                         
+   167  14118.7 MiB      0.0 MiB           1           t14 = time() ; print("Kernel grid (Eulerian) took", t14-t13, "s ")
+   168                                         
+   169  14118.7 MiB      0.0 MiB           1           skymap += np.asarray(np.histogram(ipix_grid, bins=npix, range=(-0.5,npix-0.5), weights=kernel_sphere, density=False)[0])
+   170   8934.7 MiB  -5184.0 MiB           1           del ipix_grid, kernel_sphere           # -12 : 30
+   171                                         
+   172   8934.7 MiB      0.0 MiB           1           t15 = time() ; print("Project to healpix (Eulerian) took", t15-t14, "s ")
+   173                                         
+   174   3750.7 MiB  -5184.0 MiB           1       if store_displacements: del grid_sx, grid_sy, grid_sz
+   175                                         
+   176   3750.7 MiB      0.0 MiB           1       return skymap
+
+

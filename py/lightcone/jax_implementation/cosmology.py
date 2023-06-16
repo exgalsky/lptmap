@@ -170,21 +170,21 @@ class cosmology:
     def comoving_distance(self, z):
         if self.params['backend'].upper() == 'CLASS':
             # return self.__z2comov_interpol(z)
-            return np.asarray(jnp.interp(z, self._z_grid, self._comoving_dist))
+            return jnp.interp(z, self._z_grid, self._comoving_dist).astype(jnp.float32)
         if self.params['backend'].upper() == 'CAMB':
             return self.camb_wsp.comoving_radial_distance(z)
 
     def comoving_distance2z(self,comoving_distance):
         # return self.__comov2z_interpol(comoving_distance)
-        return jnp.interp(comoving_distance, self._comoving_dist, self._z_grid)
+        return jnp.interp(comoving_distance, self._comoving_dist, self._z_grid).astype(jnp.float32)
 
     def growth_factor_D(self, z):
         # return self.__growthD_interpol(z)
-        return jnp.interp(z, self._z_grid, self._growth_factor)
+        return jnp.interp(z, self._z_grid, self._growth_factor).astype(jnp.float32)
 
     def Hubble_H(self, z):
         # return self.__HubbleH_interpol(z)
-        return jnp.interp(z, self._z_grid, self._Hubble)
+        return jnp.interp(z, self._z_grid, self._Hubble).astype(jnp.float32)
 
 
 
