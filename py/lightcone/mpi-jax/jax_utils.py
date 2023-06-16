@@ -27,9 +27,9 @@ class jax_handler:
             import psutil
         else:
             try:
-                import gputil 
+                import GPUtil
                 self.GPU_available = True
-                self.gpus = gputil.getGPUs()
+                self.gpus = GPUtil.getGPUs()
                 
             except:
                 import psutil
@@ -56,9 +56,9 @@ class jax_handler:
         total_memory_required = block_shape[0] * block_shape[1] * block_shape[2] * peak_per_cell_memory * jax_overhead_factor
 
         if self.GPU_available:
-            import gputil
+            import GPUtil
             
-            gpus = gputil.getGPUs()
+            gpus = GPUtil.getGPUs()
             GPUmem = gpus[0].memoryTotal()
             self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem))
 
