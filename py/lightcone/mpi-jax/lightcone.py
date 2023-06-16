@@ -46,7 +46,7 @@ kappa_map = lpt_wsp.lpt2map([sxfile, syfile, szfile], backend, bytes_per_cell=4)
 print(f"LIGHTCONE: Kappa map computed. Saving to file.")
 
 
-backend.mpi_backend.writemap2file(kappa_map, f'./kappa_map_grid-{ grid_nside }_nside-{ map_nside }.fits')
+backend.mpi_backend.writemap2file(kappa_map, f'./output/kappa_map_grid-{ grid_nside }_nside-{ map_nside }.fits')
 print(f"LIGHTCONE: Kappa map saved. Exiting...")
 
 

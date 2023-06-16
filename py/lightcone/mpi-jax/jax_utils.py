@@ -59,7 +59,7 @@ class jax_handler:
             import GPUtil
             
             gpus = GPUtil.getGPUs()
-            GPUmem = gpus[0].memoryTotal()
+            GPUmem = gpus[0].memoryTotal * 1024**2 # MB --> bytes
             self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem))
 
         else:
