@@ -17,7 +17,9 @@ def jax_local_device():
 class jax_handler:
 
     def __init__(self, force_no_gpu=False):
-        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "False"
+
+        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
         self.GPU_available = False
         self.gpus = []
@@ -60,13 +62,10 @@ class jax_handler:
             
             gpus = GPUtil.getGPUs()
             GPUmem = gpus[0].memoryTotal * 1024**2 # MB --> bytes
-            # HARDCODED PARAMETER -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
-            perlmutter_empirical_a100_overhead_factor = 0.5
-            self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem / perlmutter_empirical_a100_overhead_factor))
+            self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem))
             print(f"  n_jaxcalls = {self.n_jaxcalls}"+
                 f"\n  total_memory_required = {total_memory_required}"+
-                f"\n  GPUmem = {GPUmem}"+
-                f"\n  perlmutter_empirical_a100_overhead_factor = {perlmutter_empirical_a100_overhead_factor}")
+                f"\n  GPUmem = {GPUmem}")
         else:
             import psutil
             mem = psutil.virtual_memory().total

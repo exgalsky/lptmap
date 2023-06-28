@@ -99,9 +99,7 @@ class cosmology:
         if 'load_params' in kwargs:
             pass
 
-        for key, value in kwargs:
-            self.params[key] = value 
-
+        self.params.update(kwargs)
 
         # if ('A_s' in kwargs) or not('sigma8' in kwargs):
         #     del self.params['sigma8']
