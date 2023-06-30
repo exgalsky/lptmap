@@ -2,6 +2,9 @@ import numpy as np
 import jax 
 import os
 
+import logging
+log = logging.getLogger(__name__)
+
 # Copied from TOAST
 def jax_local_device():
     """Returns the device currenlty used by JAX."""
@@ -35,21 +38,19 @@ class jax_handler:
                 
             except:
                 
-                print("GPUtil not found. Assuming no GPUs are presentent and falling back to CPU.")
-                print("If GPUs are present then ensure GPUtil is installed to intialize JAX on the GPU.")
+                log.usky_warn(f"GPUtil not found. Assuming no GPUs are presentent and falling back to CPU. \n If GPUs are present then ensure GPUtil is installed to intialize JAX on the GPU.")
                 
 
         self.ndevices = len(self.gpus)
 
         if self.ndevices > 1:
-            print("Multiple GPU devices per processes is not supported at the moment. Using GPU device 0 only.")
-            print("To change this, divide the node to as many processes per node as there are GPU devices.")
+            log.usky_warn(f"Multiple GPU devices per processes is not supported at the moment. Using GPU device 0 only. \n To change this, divide the node to as many processes per node as there are GPU devices.")
             
         elif self.ndevices == 1:
             jax.distributed.initialize(local_device_ids=self.gpus[0].id)
 
         jax.config.update("jax_enable_x64", True)
-        print(f"JAX backend device set to: { jax_local_device() }")
+        log.usky_info(f"JAX backend device set to: { jax_local_device() }")
             
 
 
@@ -63,9 +64,9 @@ class jax_handler:
             gpus = GPUtil.getGPUs()
             GPUmem = gpus[0].memoryTotal * 1024**2 # MB --> bytes
             self.n_jaxcalls = int(np.ceil(total_memory_required / GPUmem))
-            print(f"  n_jaxcalls = {self.n_jaxcalls}"+
-                f"\n  total_memory_required = {total_memory_required}"+
-                f"\n  GPUmem = {GPUmem}")
+            log.usky_info(f"  n_jaxcalls = {self.n_jaxcalls}"+
+                          f"\n  total_memory_required = {total_memory_required}"+
+                          f"\n  GPUmem = {GPUmem}")
         else:
             import psutil
             mem = psutil.virtual_memory().total

@@ -1,11 +1,37 @@
 import mpi_utils as mutl
 import jax_utils as jutl 
+import log_utils as lutl
+import logging
 import numpy as np
 
+uSky_WARN_level = logging.WARN + 7
+uSky_INFO_level = logging.WARN + 5
+uSky_DEBUG_level = logging.WARN - 5
+
 class backend:
-    def __init__(self, force_no_mpi=False, force_no_gpu=False):
+    def __init__(self, logging_level=1, force_no_mpi=False, force_no_gpu=False):
+        lutl.addLoggingLevel('uSky_WARNING', uSky_WARN_level, methodName='usky_warn')
+        lutl.addLoggingLevel('uSky_INFO', uSky_INFO_level, methodName='usky_info')
+        lutl.addLoggingLevel('uSky_DEBUG', uSky_DEBUG_level, methodName='usky_debug')
+
+        if logging_level == 0: loglev=uSky_WARN_level
+        if logging_level == 1: loglev=uSky_INFO_level
+        if logging_level == 2: loglev=uSky_DEBUG_level
+        if logging_level == 3: loglev=logging.WARN
+        if logging_level == 4: loglev=logging.DEBUG
+
+        logging.basicConfig(level=loglev)
+
         self.mpi_backend = mutl.mpi_handler(force_no_mpi=force_no_mpi)
         self.jax_backend = jutl.jax_handler(force_no_gpu=force_no_gpu)
+
+    def print2log(self, logger, message, *args, exception_info=False, level='usky_warn', per_task=False):
+        if per_task:
+            message = f"MPI ProcID: { self.mpi_backend.id }, JAX device: { jutl.jax_local_device() }, { message } "
+            lutl.log_wrapper(logger, message, *args, exception_info=exception_info, level=level)
+            
+        elif self.mpi_backend.id == self.mpi_backend.root:
+            lutl.log_wrapper(logger, message, *args, exception_info=exception_info, level=level)
 
     def datastream_setup(self, data_shape, bytes_per_cell, peak_per_cell_memory, jax_overhead_factor, decom_type='slab', divide_axis=0):
         self.mpi_start, self.mpi_stop = self.mpi_backend.divide4mpi(data_shape, decom_type=decom_type, divide_axis=divide_axis)

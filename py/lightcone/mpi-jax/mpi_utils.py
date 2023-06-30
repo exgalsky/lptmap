@@ -1,12 +1,15 @@
 import numpy as np 
 import healpy as hp
 
+import logging
+log = logging.getLogger(__name__)
+
 run_with_mpi = True
 if run_with_mpi:
     try: 
         from mpi4py import MPI
     except:
-        print("WARNING: mpi4py not found, fallback to serial implementation.")  # todo: Replace print warning messages with proper logging implementation
+        log.usky_warn("WARNING: mpi4py not found, fallback to serial implementation.")  # todo: Replace print warning messages with proper logging implementation
         run_with_mpi = False
 
 # MPI communicator initialization

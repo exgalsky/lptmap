@@ -7,7 +7,8 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
-
+import logging
+log = logging.getLogger(__name__)
 
 def _read_displacement(filename, chunk_shape, chunk_offset):
     return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=jnp.float32).reshape(chunk_shape)
@@ -133,7 +134,7 @@ class lightcone_workspace():
 
         for iter in tqdm(jax_iterator, ncols=120):
 
-            print(f"start, stop, offset, shape: { iter }")
+            log.usky_debug(f"start, stop, offset, shape: { iter }", per_task=True)
             
             grid_sx = _read_displacement(dispfilenames[0], iter[3], iter[2])
             grid_sy = _read_displacement(dispfilenames[1], iter[3], iter[2])

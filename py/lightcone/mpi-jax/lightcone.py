@@ -4,8 +4,10 @@ import healpy as hp
 import liblightcone as llc
 import backend as bk
 import os
-import sys
 import argparse
+
+import logging
+log = logging.getLogger("LIGHTCONE")
 
 # for full res websky 1LPT at nside=1024:
 #   export LPT_DISPLACEMENTS_PATH=/pscratch/sd/m/malvarez/websky-displacements/
@@ -31,9 +33,8 @@ force_no_gpu          = False
 
 kappa_map_filebase = f'./output/kappa_map_grid-{ grid_nside }_nside-{ map_nside }'
 
-print(f"LIGHTCONE: Setting backend...")
 backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
-print(f"LIGHTCONE: Backend configuration complete.")
+backend.print2log(log, f"Backend configuration complete.", level='usky_info')
 
 # Paths to displacement fields
 try:
@@ -41,31 +42,31 @@ try:
 except:
     path2disp = '/Users/shamik/Documents/Work/websky_datacube/'
 
-print(f"LIGHTCONE: Path to displacement files set to {path2disp}")
+backend.print2log(log, f"Path to displacement files set to {path2disp}", level='usky_info')
 
 if grid_nside == 768:
     sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16_no768'
     syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16_no768'
     szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16_no768'
 else:
-    sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16_v2'
-    syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16_v2'
-    szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16_v2'
+    sxfile = path2disp+'sx1_7700Mpc_n6144_nb30_nt16'
+    syfile = path2disp+'sy1_7700Mpc_n6144_nb30_nt16'
+    szfile = path2disp+'sz1_7700Mpc_n6144_nb30_nt16'
 
-print(f"LIGHTCONE: Computing cosmology...")
-cosmo_wsp = cosmo.cosmology(Omega_m=0.31, h=0.68) # for background expansion consistent with websky
-print(f"LIGHTCONE: Cosmology computed")
+backend.print2log(log, f"Computing cosmology...", level='usky_info')
+cosmo_wsp = cosmo.cosmology(backend, Omega_m=0.31, h=0.68) # for background expansion consistent with websky
+backend.print2log(log, f"Cosmology computed", level='usky_info')
 
-print(f"LIGHTCONE: Setting up lightcone workspace...")
+backend.print2log(log, f"Setting up lightcone workspace...", level='usky_info')
 lpt_wsp = llc.lightcone_workspace(cosmo_wsp, grid_nside, map_nside, L_box, zmin, zmax)
 
-print(f"LIGHTCONE: Computing LPT to kappa map...")
+backend.print2log(log, f"Computing LPT to kappa map...", level='usky_info')
 kappa_map = lpt_wsp.lpt2map([sxfile, syfile, szfile], backend, bytes_per_cell=4)
-print(f"LIGHTCONE: Kappa map computed. Saving to file.")
+backend.print2log(log, f"Kappa map computed. Saving to file.", level='usky_info')
 
 
 backend.mpi_backend.writemap2file(kappa_map, kappa_map_filebase+".fits")
-print(f"LIGHTCONE: Kappa map saved. Exiting...")
+backend.print2log(f"LIGHTCONE: Kappa map saved. Exiting...", level='usky_info')
 
 
 

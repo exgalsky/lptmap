@@ -4,6 +4,9 @@ from joblib import Parallel, delayed
 # from jax import vmap, pmap
 from jax import numpy as jnp
 
+import logging
+log = logging.getLogger(__name__)
+
 try:
     import classy 
     class_present = True
@@ -16,23 +19,6 @@ try:
 except:
     camb_present = False 
 
-# try:
-#     import pyccl as ccl
-#     ccl_present = True
-# except:
-#     ccl_present = False 
-
-# try:
-#     import colossus as col 
-#     col_present = True
-# except:
-#     col_present = False 
-
-# if not (ccl_present or col_present):
-#     print("ERROR: Either Core Cosmology Library or Colossus required")
-
-# if not (class_present or camb_present):
-#     print("ERROR: Either CLASS or CAMB required")
 
 class_paramset = (['T_cmb','h', 'Omega_m', 'Omega_b', 'Omega_k', 'A_s', 'n_s', 'alpha_s', 'r', 'k_pivot','YHe','N_ur', 'N_ncdm','m_ncdm', 'modes','output', 'l_max_scalars'], #, 'l_max_tensors', 'n_t', 'alpha_t',, 'w0',     'wa'],\
                   ['T_cmb','h', 'Omega_m', 'Omega_b', 'Omega_k', 'A_s', 'n_s', 'alpha_s', 'r', 'k_pivot','YHe','N_ur', 'N_ncdm','m_ncdm', 'modes','output', 'l_max_scalars']) #, 'l_max_tensors', 'n_t', 'alpha_t',, 'w0_fld', 'wa_fld'])
@@ -48,7 +34,7 @@ class cosmology:
         Sets up Cosmology wrapper for various options of libraries.
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self, backend, **kwargs):
         #-------------------------------------------------------------------------
         # COSMOLOGICAL PARAMETERS (Planck 2018 best fit TT,TE,EE+lowE+lensing)
         # Table 1, First column, Plick best fit [https://arxiv.org/abs/1807.06209]
@@ -91,7 +77,7 @@ class cosmology:
 #============technical===============================
             'modes': 's t',
             'output': 'tCl pCl lCl mPk',    
-            'backend': 'CLASS',        
+            'cosmo_backend': 'CLASS',        
             'l_max_scalars': 4000,
             'l_max_tensors': 1500,
             'lensing': 'yes'})
@@ -107,10 +93,10 @@ class cosmology:
         #     del self.params['A_s']
 
         #==========Derived====================
-        if (self.params['backend'].upper() == 'CAMB') and not camb_present:
-            print("ERROR: CAMB dependency not met. Install CAMB to use CAMB backend.")
+        if (self.params['cosmo_backend'].upper() == 'CAMB') and not camb_present:
+            backend.print2log(log, "CAMB dependency not met. Install CAMB to use CAMB backend.", level="critical")
             exit()
-        if (self.params['backend'].upper() == 'CAMB') and camb_present:
+        if (self.params['cosmo_backend'].upper() == 'CAMB') and camb_present:
             self.params['Omega_c'] = self.params['Omega_m'] - self.params['Omega_b']
 
             self.camb_params = {}
@@ -125,10 +111,10 @@ class cosmology:
 
 
 
-        if (self.params['backend'].upper() == 'CLASS') and not class_present:
-            print("ERROR: CLASS dependency not met. Install CLASS and Classy to use CLASS backend.")
+        if (self.params['cosmo_backend'].upper() == 'CLASS') and not class_present:
+            backend.print2log(log, "CLASS dependency not met. Install CLASS and Classy to use CLASS backend.", level="critical")
             exit()
-        if (self.params['backend'].upper() == 'CLASS') and class_present:
+        if (self.params['cosmo_backend'].upper() == 'CLASS') and class_present:
             self.class_params = {}
             for i, common_key in enumerate(class_paramset[0]):
                 self.class_params[class_paramset[1][i]] = self.params[common_key]
@@ -152,7 +138,7 @@ class cosmology:
         #         self.ccl_params[ccl_paramset[1][i]] = self.params[common_key]
         #     self.ccl_wsp = ccl.Cosmology(**self.ccl_params)
 
-        # if self.params['backend'].upper() == 'CLASS':
+        # if self.params['cosmo_backend'].upper() == 'CLASS':
         #     _z_grid = np.logspace(-3, 3, num=1000) 
         #     # _comoving_dist= np.empty(self.z_for_comov.shape)
         #     # for i, z in enumerate(_z_for_comov):
@@ -166,10 +152,10 @@ class cosmology:
         # self.__HubbleH_interpol = interp1d(_z_grid,_Hubble, kind='linear', bounds_error=False, fill_value="extrapolate")
 
     def comoving_distance(self, z):
-        if self.params['backend'].upper() == 'CLASS':
+        if self.params['cosmo_backend'].upper() == 'CLASS':
             # return self.__z2comov_interpol(z)
             return jnp.interp(z, self._z_grid, self._comoving_dist).astype(jnp.float32)
-        if self.params['backend'].upper() == 'CAMB':
+        if self.params['cosmo_backend'].upper() == 'CAMB':
             return self.camb_wsp.comoving_radial_distance(z)
 
     def comoving_distance2z(self,comoving_distance):
