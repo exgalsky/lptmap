@@ -9,7 +9,7 @@ import argparse
 import logging
 log = logging.getLogger("LIGHTCONE")
 
-# for full res websky 1LPT at nside=1024:
+# for full res websky 1LPT at nside=1024 on Perlmutter:
 #   export LPT_DISPLACEMENTS_PATH=/pscratch/sd/m/malvarez/websky-displacements/
 #   srun -n $nproc --gpus-per-task=1 python lightcone.py --grid-nside 6144 --map-nside 1024
 
