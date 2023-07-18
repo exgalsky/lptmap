@@ -6,13 +6,12 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 from tqdm import tqdm
-import jax_types as jxt
 
 import logging
 log = logging.getLogger(__name__)
 
 def _read_displacement(filename, chunk_shape, chunk_offset):
-    return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=jxt.float_type).reshape(chunk_shape)
+    return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=jnp.float32).reshape(chunk_shape)
 
 class lightcone_workspace():
     def __init__(self, cosmo_workspace, grid_nside, map_nside, box_length_in_Mpc, zmin, zmax):
@@ -48,15 +47,15 @@ class lightcone_workspace():
         # Lagrangian comoving distance grid for the slab
         # @partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
         def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
-            return jnp.meshgrid( jxt.float_type((x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc), jxt.float_type((y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc), jxt.float_type((z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc), indexing='ij')
+            return jnp.meshgrid( jnp.float32((x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc), jnp.float32((y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc), jnp.float32((z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc), indexing='ij')
 
         # @jax.jit
         def comoving_q(x_i, y_i, z_i):
-            return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.).astype(jxt.float_type)
+            return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.).astype(jnp.float32)
 
         # @partial(jax.jit, static_argnames=['Dgrid_in_Mpc', 'trans'])
         def euclid_i(q_i, s_i, growth_i, Dgrid_in_Mpc, trans):
-            return (q_i + growth_i * s_i).astype(jxt.float_type)
+            return (q_i + growth_i * s_i).astype(jnp.float32)
             
 
         for translation in origin_shift:
@@ -127,7 +126,7 @@ class lightcone_workspace():
         data_shape = (self.grid_nside, self.grid_nside, self.grid_nside)
         # HARDCODED PARAMETERS -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
         # jax reports 73 GB for 768^3 on Perlmutter; accounting for an overhead of 1.5, this is peak_per_cell_memory = 115
-        peak_per_cell_memory = 150 * jxt.float_size / 4. # scaling assumes 150 bytes with 32-bit floats
+        peak_per_cell_memory = 350.0
         jax_overhead_factor  = 1.5
         backend.datastream_setup(data_shape, bytes_per_cell, peak_per_cell_memory, jax_overhead_factor, decom_type='slab', divide_axis=0)
         jax_iterator = backend.get_iterator()

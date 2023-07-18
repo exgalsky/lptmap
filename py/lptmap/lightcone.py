@@ -33,7 +33,7 @@ force_no_gpu          = False
 
 kappa_map_filebase = f'./output/kappa_map_grid-{ grid_nside }_nside-{ map_nside }'
 
-backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
+backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu, logging_level=1)
 backend.print2log(log, f"Backend configuration complete.", level='usky_info')
 
 # Paths to displacement fields
