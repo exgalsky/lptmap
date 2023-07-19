@@ -9,7 +9,7 @@ import argparse
 import logging
 log = logging.getLogger("LIGHTCONE")
 
-# for full res websky 1LPT at nside=1024 on Perlmutter:
+# for full res websky 1LPT at nside=1024:
 #   export LPT_DISPLACEMENTS_PATH=/pscratch/sd/m/malvarez/websky-displacements/
 #   srun -n $nproc --gpus-per-task=1 python lightcone.py --grid-nside 6144 --map-nside 1024
 
@@ -33,7 +33,7 @@ force_no_gpu          = False
 
 kappa_map_filebase = f'./output/kappa_map_grid-{ grid_nside }_nside-{ map_nside }'
 
-backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu, logging_level=1)
+backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
 backend.print2log(log, f"Backend configuration complete.", level='usky_info')
 
 # Paths to displacement fields

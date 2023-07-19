@@ -81,7 +81,7 @@ class lightcone_workspace():
 
             # t9 = time() ; print("Kernel grid (Lagrangian) took", t9-t8, "s ")
 
-            skymap = skymap.at[:self.npix].add(jnp.histogram(ipix_grid, bins=self.npix, range=(-0.5, self.npix-0.5), weights=-kernel_sphere, density=False)[0])      
+            skymap = skymap.at[:self.npix].add(jnp.histogram(ipix_grid, bins=self.npix, range=(-0.5, self.npix-0.5), weights=-kernel_sphere.astype(jnp.float64), density=False)[0])      
             del kernel_sphere, ipix_grid         
 
             # t10 = time() ; print("Project to healpix (Lagrangian) took", t10-t9, "s ")
@@ -112,7 +112,7 @@ class lightcone_workspace():
 
             # t14 = time() ; print("Kernel grid (Eulerian) took", t14-t13, "s ")
 
-            skymap = skymap.at[:self.npix].add(jnp.histogram(ipix_grid, bins=self.npix, range=(-0.5, self.npix-0.5), weights=kernel_sphere, density=False)[0])
+            skymap = skymap.at[:self.npix].add(jnp.histogram(ipix_grid, bins=self.npix, range=(-0.5, self.npix-0.5), weights=kernel_sphere.astype(jnp.float64), density=False)[0])
             del ipix_grid, kernel_sphere       
 
             # t15 = time() ; print("Project to healpix (Eulerian) took", t15-t14, "s ")
@@ -126,7 +126,7 @@ class lightcone_workspace():
         data_shape = (self.grid_nside, self.grid_nside, self.grid_nside)
         # HARDCODED PARAMETERS -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
         # jax reports 73 GB for 768^3 on Perlmutter; accounting for an overhead of 1.5, this is peak_per_cell_memory = 115
-        peak_per_cell_memory = 350.0
+        peak_per_cell_memory = 150.0
         jax_overhead_factor  = 1.5
         backend.datastream_setup(data_shape, bytes_per_cell, peak_per_cell_memory, jax_overhead_factor, decom_type='slab', divide_axis=0)
         jax_iterator = backend.get_iterator()
