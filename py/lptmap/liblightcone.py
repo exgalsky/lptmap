@@ -25,7 +25,7 @@ class lightcone_workspace():
         self.chimin = self.cosmo.comoving_distance(zmin)
         self.chimax = self.cosmo.comoving_distance(zmax)
         
-    @partial(jax.jit, static_argnames=['self', 'grid_xstarts', 'grid_xstops', 'grid_ystarts', 'grid_ystops', 'grid_zstarts', 'grid_zstops'])
+    #@partial(jax.jit, static_argnames=['self', 'grid_xstarts', 'grid_xstops', 'grid_ystarts', 'grid_ystops', 'grid_zstarts', 'grid_zstops'])
     def grid2map(self, grid_sx, grid_sy, grid_sz, grid_xstarts, grid_xstops, grid_ystarts, grid_ystops, grid_zstarts, grid_zstops):
         # Lattice spacing (a_latt in Websky parlance) in Mpc
         lattice_size_in_Mpc = self.L_box / self.grid_nside
@@ -47,29 +47,18 @@ class lightcone_workspace():
                         (0,0,-shift_param), (-shift_param,0,-shift_param), (0,-shift_param,-shift_param), (-shift_param,-shift_param,-shift_param)]
 
         # Lagrangian comoving distance grid for the slab
-        # @partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
+        @partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
         def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
             qx, qy, qz = jnp.meshgrid( jnp.float32((x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc), jnp.float32((y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc), jnp.float32((z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc), indexing='ij')
             return qx.ravel(), qy.ravel(), qz.ravel()
 
-        # @jax.jit
+        @jax.jit
         def comoving_q(x_i, y_i, z_i):
             return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.).astype(jnp.float32)
 
-        # @partial(jax.jit, static_argnames=['Dgrid_in_Mpc', 'trans'])
+        @partial(jax.jit, static_argnames=['Dgrid_in_Mpc', 'trans'])
         def euclid_i(q_i, s_i, growth_i, Dgrid_in_Mpc, trans):
             return (q_i + growth_i * s_i).astype(jnp.float32)
-
-        def kernel2skymap(skymap,ipix_grid,kernel):
-            return skymap.at[:self.npix].add(jnp.histogram(ipix_grid, bins=self.npix, range=(-0.5, self.npix-0.5), weights=kernel_sphere.astype(jnp.float64), density=False)[0].astype(jnp.float32))
-            # fori_loop method below not currently working
-            # n = ipix_grid.shape[0]
-            #
-            # def add2skymap(i, skymap_cur):
-            #     ipix = ipix_grid[i]
-            #     return skymap_cur.at[ipix].add(kernel[i])
-            #
-            # return fori_loop(0, n, add2skymap, skymap)
 
         for translation in origin_shift:
 
@@ -94,7 +83,7 @@ class lightcone_workspace():
 
             # t9 = time() ; print("Kernel grid (Lagrangian) took", t9-t8, "s ")
 
-            skymap = kernel2skymap(skymap,ipix_grid,kernel_sphere)
+            skymap = skymap.at[ipix_grid].add(kernel_sphere)
             del kernel_sphere, ipix_grid         
 
             # t10 = time() ; print("Project to healpix (Lagrangian) took", t10-t9, "s ")
@@ -125,7 +114,7 @@ class lightcone_workspace():
 
             # t14 = time() ; print("Kernel grid (Eulerian) took", t14-t13, "s ")
 
-            skymap = kernel2skymap(skymap,ipix_grid,kernel_sphere)
+            skymap = skymap.at[ipix_grid].add(kernel_sphere)
             del ipix_grid, kernel_sphere       
 
             # t15 = time() ; print("Project to healpix (Eulerian) took", t15-t14, "s ")
@@ -138,7 +127,7 @@ class lightcone_workspace():
 
         data_shape = (self.grid_nside, self.grid_nside, self.grid_nside)
         # HARDCODED PARAMETERS -- NEED TO DOCUMENT AND IMPLEMENT USER SETTING AT RUNTIME
-        peak_per_cell_memory = 200.0
+        peak_per_cell_memory = 75.0
         jax_overhead_factor  = 1.5
         backend.datastream_setup(data_shape, bytes_per_cell, peak_per_cell_memory, jax_overhead_factor, decom_type='slab', divide_axis=0)
         jax_iterator = backend.get_iterator()

@@ -19,10 +19,13 @@ def jax_local_device():
 
 class jax_handler:
 
-    def __init__(self, force_no_gpu=False,mpi_backend=None,max_GPU_mem_GB=40.0):
+    def __init__(self, force_no_gpu=False,mpi_backend=None,max_GPU_mem_GB=40.0,
+                 preallocate=False,allocator_platform=False):
 
-        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-        os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+        if preallocate:
+            os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        if allocator_platform:
+            os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
 
         self.GPU_available = False
         self.gpus = []
@@ -50,7 +53,7 @@ class jax_handler:
         elif self.ndevices == 1:
             jax.distributed.initialize(local_device_ids=self.gpus[0].id)
 
-        jax.config.update("jax_enable_x64", True)
+        jax.config.update("jax_enable_x64", False)
         log.usky_info(f"JAX backend device set to: { jax_local_device() }")
             
         self.task_tag = "serial task"
