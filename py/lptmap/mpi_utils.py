@@ -24,11 +24,12 @@ class mpi_handler():
             self.comm = MPI.COMM_WORLD
             self.id = self.comm.Get_rank()            #number of the process running the code
             self.numProc = self.comm.Get_size()       #total number of processes running
+            self.rank_tag = f"MPI rank {self.id}"
         else:
             self.comm = None
             self.id = 0
             self.numProc = 1 
-
+            self.rank_tag = f"serial task"
     def divide4mpi(self, data_shape, decom_type='slab', divide_axis=0):
 
         if decom_type.lower() == 'slab':
@@ -53,12 +54,16 @@ class mpi_handler():
             else: 
                 self.slab_per_Proc = None 
 
-                # Send copy of slab_per_Proc to each process.
+            # Send copy of slab_per_Proc to each process.
             if self.__run_with_mpi:    self.slab_per_Proc = self.comm.bcast(self.slab_per_Proc, root=0)
 
             # Find the start and stop of the x-axis slab for each process
             self.slab_start_in_Proc = np.sum(self.slab_per_Proc[0:self.id])    
             self.slab_stop_in_Proc = self.slab_start_in_Proc + self.slab_per_Proc[self.id]
+
+            log.usky_info(f"  {self.rank_tag}: slab_per_Proc      = {self.slab_per_Proc}")
+            log.usky_info(f"  {self.rank_tag}: slab_start_in_Proc = {self.slab_start_in_Proc}")
+            log.usky_info(f"  {self.rank_tag}: slab_stop_in_Proc  = {self.slab_stop_in_Proc}")
 
             return self.slab_start_in_Proc, self.slab_stop_in_Proc
         else:
