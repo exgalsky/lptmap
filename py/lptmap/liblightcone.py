@@ -13,7 +13,7 @@ import logging
 log = logging.getLogger(__name__)
 
 def _read_displacement(filename, chunk_shape, chunk_offset):
-    return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=jnp.float32)
+    return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=np.float32)
 
 class lightcone_workspace():
     def __init__(self, cosmo_workspace, grid_nside, map_nside, box_length_in_Mpc, zmin, zmax):
@@ -40,7 +40,7 @@ class lightcone_workspace():
         yaxis = jnp.arange(grid_ystarts, grid_ystops, dtype=jnp.int16)
         zaxis = jnp.arange(grid_zstarts, grid_zstops, dtype=jnp.int16)
 
-        skymap = jnp.zeros((self.npix,), dtype=jnp.float32)
+        skymap = jnp.zeros((self.npix,))
 
         shift_param = self.grid_nside
         origin_shift = [(0,0,0), (-shift_param,0,0), (0,-shift_param,0), (-shift_param,-shift_param,0),
@@ -49,16 +49,16 @@ class lightcone_workspace():
         # Lagrangian comoving distance grid for the slab
         @partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
         def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
-            qx, qy, qz = jnp.meshgrid( jnp.float32((x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc), jnp.float32((y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc), jnp.float32((z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc), indexing='ij')
+            qx, qy, qz = jnp.meshgrid( (x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc, (y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc, (z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc, indexing='ij')
             return qx.ravel(), qy.ravel(), qz.ravel()
 
         @jax.jit
         def comoving_q(x_i, y_i, z_i):
-            return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.).astype(jnp.float32)
+            return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.)
 
         @jax.jit
         def euclid_i(q_i, s_i, growth_i):
-            return (q_i + growth_i * s_i).astype(jnp.float32)
+            return (q_i + growth_i * s_i)
 
         for translation in origin_shift:
 
