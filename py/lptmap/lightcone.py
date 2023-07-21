@@ -31,7 +31,7 @@ zmax                  = 4.5   # maximum redshift for projection (=4.50 for websk
 force_no_mpi          = False 
 force_no_gpu          = False
 
-kappa_map_filebase = f'./output/kappa_map_grid-{ grid_nside }_nside-{ map_nside }'
+kappa_map_filebase = f'./output/kappa_1lpt_grid-{ grid_nside }_nside-{ map_nside }'
 
 backend = bk.backend(force_no_mpi=force_no_mpi, force_no_gpu=force_no_gpu)
 backend.print2log(log, f"Backend configuration complete.", level='usky_info')
