@@ -1,7 +1,6 @@
 import numpy as np 
 # from scipy.interpolate import interp1d 
 from joblib import Parallel, delayed
-# from jax import vmap, pmap
 from jax import numpy as jnp
 
 import logging
@@ -129,14 +128,6 @@ class cosmology:
             self._Hubble = jnp.asarray(Parallel(n_jobs=-2, prefer="threads")(delayed (self.class_wsp.Hubble)(z) for z in self._z_grid))
 
             self._z_grid = jnp.asarray(self._z_grid)
-            # self._comoving_dist = vmap(self.class_wsp.comoving_distance)(self._z_grid)
-            # self._growth_factor = vmap(self.class_wsp.scale_independent_growth_factor)(self._z_grid)
-            # self._Hubble = vmap(self.class_wsp.Hubble)(self._z_grid)
-        # if ccl_present:
-        #     self.ccl_params = {}
-        #     for i, common_key in  enumerate(ccl_paramset[0]):
-        #         self.ccl_params[ccl_paramset[1][i]] = self.params[common_key]
-        #     self.ccl_wsp = ccl.Cosmology(**self.ccl_params)
 
         # if self.params['cosmo_backend'].upper() == 'CLASS':
         #     _z_grid = np.logspace(-3, 3, num=1000) 
@@ -154,21 +145,21 @@ class cosmology:
     def comoving_distance(self, z):
         if self.params['cosmo_backend'].upper() == 'CLASS':
             # return self.__z2comov_interpol(z)
-            return jnp.interp(z, self._z_grid, self._comoving_dist).astype(jnp.float32)
+            return jnp.interp(z, self._z_grid, self._comoving_dist)
         if self.params['cosmo_backend'].upper() == 'CAMB':
             return self.camb_wsp.comoving_radial_distance(z)
 
     def comoving_distance2z(self,comoving_distance):
         # return self.__comov2z_interpol(comoving_distance)
-        return jnp.interp(comoving_distance, self._comoving_dist, self._z_grid).astype(jnp.float32)
+        return jnp.interp(comoving_distance, self._comoving_dist, self._z_grid)
 
     def growth_factor_D(self, z):
         # return self.__growthD_interpol(z)
-        return jnp.interp(z, self._z_grid, self._growth_factor).astype(jnp.float32)
+        return jnp.interp(z, self._z_grid, self._growth_factor)
 
     def Hubble_H(self, z):
         # return self.__HubbleH_interpol(z)
-        return jnp.interp(z, self._z_grid, self._Hubble).astype(jnp.float32)
+        return jnp.interp(z, self._z_grid, self._Hubble)
 
 
 

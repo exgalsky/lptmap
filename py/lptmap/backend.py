@@ -23,7 +23,7 @@ class backend:
         logging.basicConfig(level=loglev)
 
         self.mpi_backend = mutl.mpi_handler(force_no_mpi=force_no_mpi)
-        self.jax_backend = jutl.jax_handler(force_no_gpu=force_no_gpu)
+        self.jax_backend = jutl.jax_handler(force_no_gpu=force_no_gpu,mpi_backend=self.mpi_backend)
 
     def print2log(self, logger, message, *args, exception_info=False, level='usky_warn', per_task=False):
         if per_task:
