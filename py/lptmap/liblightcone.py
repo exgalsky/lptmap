@@ -56,8 +56,8 @@ class lightcone_workspace():
         def comoving_q(x_i, y_i, z_i):
             return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.).astype(jnp.float32)
 
-        @partial(jax.jit, static_argnames=['Dgrid_in_Mpc', 'trans'])
-        def euclid_i(q_i, s_i, growth_i, Dgrid_in_Mpc, trans):
+        @jax.jit
+        def euclid_i(q_i, s_i, growth_i):
             return (q_i + growth_i * s_i).astype(jnp.float32)
 
         for translation in origin_shift:
@@ -92,13 +92,13 @@ class lightcone_workspace():
         
             # t11 = time() ; print("Growth took", t11-t10, "s ")
 
-            grid_Xx = jax.vmap(euclid_i, in_axes=(0, 0, 0, None, None), out_axes=0)(grid_qx, grid_sx, growth_grid, lattice_size_in_Mpc, translation[0])
+            grid_Xx = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qx, grid_sx, growth_grid)
             del grid_qx
 
-            grid_Xy = jax.vmap(euclid_i, in_axes=(0, 0, 0, None, None), out_axes=0)(grid_qy, grid_sy, growth_grid, lattice_size_in_Mpc, translation[1])
+            grid_Xy = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qy, grid_sy, growth_grid)
             del grid_qy
 
-            grid_Xz = jax.vmap(euclid_i, in_axes=(0, 0, 0, None, None), out_axes=0)(grid_qz, grid_sz, growth_grid, lattice_size_in_Mpc, translation[2])
+            grid_Xz = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qz, grid_sz, growth_grid)
             del grid_qz, growth_grid
 
             # t12 = time() ; print("Displacements took", t12-t11, "s ")
