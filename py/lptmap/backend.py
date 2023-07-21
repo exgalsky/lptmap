@@ -10,9 +10,9 @@ uSky_DEBUG_level = logging.WARN - 5
 
 class backend:
     def __init__(self, logging_level=1, force_no_mpi=False, force_no_gpu=False):
-        lutl.addLoggingLevel('uSky_WARNING', uSky_WARN_level, methodName='usky_warn')
-        lutl.addLoggingLevel('uSky_INFO', uSky_INFO_level, methodName='usky_info')
-        lutl.addLoggingLevel('uSky_DEBUG', uSky_DEBUG_level, methodName='usky_debug')
+        lutl.addLoggingLevel('lptmap_WARNING', uSky_WARN_level, methodName='usky_warn')
+        lutl.addLoggingLevel('lptmap_INFO', uSky_INFO_level, methodName='usky_info')
+        lutl.addLoggingLevel('lptmap_DEBUG', uSky_DEBUG_level, methodName='usky_debug')
 
         if logging_level == 0: loglev=uSky_WARN_level
         if logging_level == 1: loglev=uSky_INFO_level

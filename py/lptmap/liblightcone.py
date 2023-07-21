@@ -10,8 +10,42 @@ from time import time
 import logging
 log = logging.getLogger(__name__)
 
+@partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
+def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
+    qx, qy, qz = jnp.meshgrid( (x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc, (y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc, (z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc, indexing='ij')
+    return qx.ravel(), qy.ravel(), qz.ravel()
+
+@jax.jit
+def comoving_q(x_i, y_i, z_i):
+    return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.)
+
+@jax.jit
+def euclid_i(q_i, s_i, growth_i):
+    return (q_i + growth_i * s_i)
+
 def _read_displacement(filename, chunk_shape, chunk_offset):
     return np.fromfile(filename, count=chunk_shape[0] * chunk_shape[1] * chunk_shape[2], offset=chunk_offset, dtype=np.float32)
+
+def _profiletime(task_tag, step, times):
+    dt = time() - times['t0']
+    log.usky_debug(f'{task_tag}: {dt:.6f} sec for {step}')
+    if step in times.keys():
+        times[step] += dt
+    else:
+        times[step] = dt
+    times['t0'] = time()
+    return times
+
+def _sortdict(dictin,reverse=False):
+    return dict(sorted(dictin.items(), key=lambda item: item[1], reverse=reverse))
+
+def _summarizetime(task_tag, times):
+    total_time = 0
+    for key in _sortdict(times,reverse=True).keys():
+        if key != 't0':
+            log.usky_info(f'{task_tag}: {times[key]:.5e} {key}')
+            total_time += times[key]
+    log.usky_info(f'{task_tag}: {total_time:.5e} all steps')
 
 class lightcone_workspace():
     def __init__(self, cosmo_workspace, grid_nside, map_nside, box_length_in_Mpc, zmin, zmax):
@@ -23,8 +57,20 @@ class lightcone_workspace():
         self.chimin = self.cosmo.comoving_distance(zmin)
         self.chimax = self.cosmo.comoving_distance(zmax)
         
-    #@partial(jax.jit, static_argnames=['self', 'grid_xstarts', 'grid_xstops', 'grid_ystarts', 'grid_ystops', 'grid_zstarts', 'grid_zstops'])
-    def grid2map(self, grid_sx, grid_sy, grid_sz, grid_xstarts, grid_xstops, grid_ystarts, grid_ystops, grid_zstarts, grid_zstops):
+    def grid2map(self, sx, sy, sz, grid_xstarts, grid_xstops, grid_ystarts, grid_ystops, grid_zstarts, grid_zstops, backend=None):
+
+        tgridmap0 = time()
+        overalltimes = {}
+        times = {}
+        overalltimes={'t0' : time()}
+        times={'t0' : time()}
+        log = logging.getLogger(__name__)
+
+        task_tag0 = ""
+        if backend is not None:
+            task_tag0 = backend.jax_backend.task_tag
+        task_tag = task_tag0
+
         # Lattice spacing (a_latt in Websky parlance) in Mpc
         lattice_size_in_Mpc = self.L_box / self.grid_nside
 
@@ -32,92 +78,103 @@ class lightcone_workspace():
 
         # Effectively \Delta chi, comoving distance interval spacing for LoS integral
         geometric_factor = lattice_size_in_Mpc**3. / solidang_pix
+        times = _profiletime(task_tag, 'initialization', times)
 
         # Setup axes for the slab grid
         xaxis = jnp.arange(grid_xstarts, grid_xstops, dtype=jnp.int16)
         yaxis = jnp.arange(grid_ystarts, grid_ystops, dtype=jnp.int16)
         zaxis = jnp.arange(grid_zstarts, grid_zstops, dtype=jnp.int16)
+        times = _profiletime(task_tag, 'slab grid axis setup', times)
 
         skymap = jnp.zeros((self.npix,))
+        times = _profiletime(task_tag, 'skymap init', times)
 
         shift_param = self.grid_nside
         origin_shift = [(0,0,0), (-shift_param,0,0), (0,-shift_param,0), (-shift_param,-shift_param,0),
                         (0,0,-shift_param), (-shift_param,0,-shift_param), (0,-shift_param,-shift_param), (-shift_param,-shift_param,-shift_param)]
+        times = _profiletime(task_tag, 'origin shift', times)
 
-        # Lagrangian comoving distance grid for the slab
-        @partial(jax.jit, static_argnames=['trans_vec', 'Dgrid_in_Mpc'])
-        def lagrange_mesh(x_axis, y_axis, z_axis, trans_vec, Dgrid_in_Mpc):
-            qx, qy, qz = jnp.meshgrid( (x_axis + 0.5 + trans_vec[0]) * Dgrid_in_Mpc, (y_axis + 0.5 + trans_vec[1]) * Dgrid_in_Mpc, (z_axis + 0.5 + trans_vec[2]) * Dgrid_in_Mpc, indexing='ij')
-            return qx.ravel(), qy.ravel(), qz.ravel()
-
-        @jax.jit
-        def comoving_q(x_i, y_i, z_i):
-            return jnp.sqrt(x_i**2. + y_i**2. + z_i**2.)
-
-        @jax.jit
-        def euclid_i(q_i, s_i, growth_i):
-            return (q_i + growth_i * s_i)
-
+        t0 = time()
         for translation in origin_shift:
 
-            # t4 = time()
+            # Lagrangian coordinates
+            qx, qy, qz = lagrange_mesh(xaxis, yaxis, zaxis, translation, lattice_size_in_Mpc)
+            times = _profiletime(task_tag, 'Lagrangian meshgrid', times)
 
-            grid_qx, grid_qy, grid_qz = lagrange_mesh(xaxis, yaxis, zaxis, translation, lattice_size_in_Mpc)
+            # comoving distance
+            chi = jax.vmap(comoving_q, in_axes=(0, 0, 0), out_axes=0)(qx, qy, qz)    # 4 : 22
+            times = _profiletime(task_tag, 'chi', times)
 
-            # t5 = time() ; print("Largrangian meshgrid took", t5 - t4, "s ")
+            # redshift
+            redshift = jax.vmap(self.cosmo.comoving_distance2z)(chi)
+            times = _profiletime(task_tag, 'redshift', times)
 
-            lagrange_grid = jax.vmap(comoving_q, in_axes=(0, 0, 0), out_axes=0)(grid_qx, grid_qy, grid_qz)    # 4 : 22
+            # healpix indices
+            ipix = jhp.vec2pix(self.map_nside, qz, qy, qx)
+            times = _profiletime(task_tag, 'ipix', times)
 
-            # t6 = time() ; print("Lagrangian comoving distance grid took", t6 - t5, "s ")
-            redshift_grid = jax.vmap(self.cosmo.comoving_distance2z)(lagrange_grid) 
+            # lensing kernel
+            kernel = -jnp.where((chi >= self.chimin) & (chi <= self.chimax), jax.vmap(kl.lensing_kernel_F, in_axes=(None, None, 0, 0), out_axes=0 )(self.cosmo, geometric_factor, chi, redshift), 0.)
+            times = _profiletime(task_tag, 'kernel', times)
 
-            # t7 = time() ; print("Redshift took", t7-t6, "s ")
-            # Compute healpix pixel grid from Lagrangian x, y, z values
-            ipix_grid = jhp.vec2pix(self.map_nside, grid_qz, grid_qy, grid_qx)
+            # add lensing kernel to corresponding skymap pixel at each grid position
+            skymap = skymap.at[ipix].add(kernel)
+            times = _profiletime(task_tag, 'skymap add', times)
 
-            # t8 = time() ; print("HPX pixel grid (Lagrangian) took", t8-t7, "s ")
+            del kernel, ipix
+            times = _profiletime(task_tag, 'delete kernel, ipix', times)
 
-            kernel_sphere = -jnp.where((lagrange_grid >= self.chimin) & (lagrange_grid <= self.chimax), jax.vmap(kl.lensing_kernel_F, in_axes=(None, None, 0, 0), out_axes=0 )(self.cosmo, geometric_factor, lagrange_grid, redshift_grid), 0.)
+            # linear growth factor
+            growth = jax.vmap(self.cosmo.growth_factor_D)(redshift)
+            times = _profiletime(task_tag, 'growth', times)
 
-            # t9 = time() ; print("Kernel grid (Lagrangian) took", t9-t8, "s ")
+            # Eulerian x coordinate
+            Xx = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(qx, sx, growth)
+            times = _profiletime(task_tag, 'Xx', times)
 
-            skymap = skymap.at[ipix_grid].add(kernel_sphere)
-            del kernel_sphere, ipix_grid         
+            del qx
+            times = _profiletime(task_tag, 'qx delete', times)
 
-            # t10 = time() ; print("Project to healpix (Lagrangian) took", t10-t9, "s ")
+            # Eulerian y coordinate
+            Xy = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(qy, sy, growth)
+            times = _profiletime(task_tag, 'Xy', times)
 
-            growth_grid = jax.vmap(self.cosmo.growth_factor_D)(redshift_grid)
-        
-            # t11 = time() ; print("Growth took", t11-t10, "s ")
+            del qy
+            times = _profiletime(task_tag, 'qy delete', times)
 
-            grid_Xx = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qx, grid_sx, growth_grid)
-            del grid_qx
+            # Eulerian z coordinate
+            Xz = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(qz, sz, growth)
+            times = _profiletime(task_tag, 'Xz', times)
 
-            grid_Xy = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qy, grid_sy, growth_grid)
-            del grid_qy
+            del qz, growth
+            times = _profiletime(task_tag, 'qz, growth delete', times)
 
-            grid_Xz = jax.vmap(euclid_i, in_axes=(0, 0, 0), out_axes=0)(grid_qz, grid_sz, growth_grid)
-            del grid_qz, growth_grid
+            ipix = jhp.vec2pix(self.map_nside, Xz, Xy, Xx)
+            times = _profiletime(task_tag, 'ipix Eulerian', times)
 
-            # t12 = time() ; print("Displacements took", t12-t11, "s ")
+            del Xx, Xy, Xz
+            times = _profiletime(task_tag, 'Xx, Xy, Xz delete', times)
 
-            # Compute healpix pixel grid from Euclidean x, y, z values
-            ipix_grid = jhp.vec2pix(self.map_nside, grid_Xz, grid_Xy, grid_Xx)
-            del grid_Xx, grid_Xy, grid_Xz               
+            kernel = jnp.where((chi >= self.chimin) & (chi <= self.chimax),
+                               jax.vmap(kl.lensing_kernel_F, in_axes=(None, None, 0, 0), out_axes=0 )
+                                       (self.cosmo, geometric_factor, chi, redshift), 0.)
+            times = _profiletime(task_tag, 'kernel Eulerian', times)
 
-            # t13 = time() ; print("HPX pixel grid (Eulerian) took", t13-t12, "s ")
+            del chi, redshift
+            times = _profiletime(task_tag, 'chi, redshift delete Eulerian', times)
 
-            kernel_sphere = jnp.where((lagrange_grid >= self.chimin) & (lagrange_grid <= self.chimax), jax.vmap(kl.lensing_kernel_F, in_axes=(None, None, 0, 0), out_axes=0 )(self.cosmo, geometric_factor, lagrange_grid, redshift_grid), 0.) 
-            del lagrange_grid, redshift_grid
+            skymap = skymap.at[ipix].add(kernel)
+            times = _profiletime(task_tag, 'skymap add Eulerian', times)
 
-            # t14 = time() ; print("Kernel grid (Eulerian) took", t14-t13, "s ")
+            del ipix, kernel
+            times = _profiletime(task_tag, 'ipix, kernel delete Eulerian', times)
 
-            skymap = skymap.at[ipix_grid].add(kernel_sphere)
-            del ipix_grid, kernel_sphere       
+        del sx, sy, sz
+        times = _profiletime(task_tag+' (grid2map)', 'sx, sy, sz delete', times)
+        _summarizetime(task_tag+' (grid2map steps)',times)
 
-            # t15 = time() ; print("Project to healpix (Eulerian) took", t15-t14, "s ")
-
-        del grid_sx, grid_sy, grid_sz
+        overalltimes = _profiletime(task_tag, 'grid2map', overalltimes)
+        _summarizetime(task_tag+' (grid2map)',overalltimes)
 
         return skymap
     
@@ -145,14 +202,28 @@ class lightcone_workspace():
             if not use_tqdm:
                 t1=time()
 
-            grid_sx = _read_displacement(dispfilenames[0], iter[3], iter[2])
-            grid_sy = _read_displacement(dispfilenames[1], iter[3], iter[2])
-            grid_sz = _read_displacement(dispfilenames[2], iter[3], iter[2])
+            sx = _read_displacement(dispfilenames[0], iter[3], iter[2])
+            sy = _read_displacement(dispfilenames[1], iter[3], iter[2])
+            sz = _read_displacement(dispfilenames[2], iter[3], iter[2])
 
             if not use_tqdm:
                 t2=time()
 
-            obs_map += np.array(self.grid2map(jnp.asarray(grid_sx), jnp.asarray(grid_sy), jnp.asarray(grid_sz), iter[0], iter[1], 0, self.grid_nside, 0, self.grid_nside), dtype=np.float32)  #, kernel_list
+            times={'t0' : time()}
+
+            sx = jnp.asarray(sx) ; sy = jnp.asarray(sy) ; sz = jnp.asarray(sz)
+            times = _profiletime(task_tag, 'numpy to jax sx, sy, sz', times)
+
+            obs_map_cur = self.grid2map(sx, sy, sz, iter[0], iter[1], 0, self.grid_nside, 0, self.grid_nside, backend=backend)
+            times = _profiletime(task_tag, 'grid2map in lpt2map', times)
+
+            obs_map_cur = np.array(obs_map_cur, dtype=np.float32)
+            times = _profiletime(task_tag, 'jax to numpy obs_map', times)
+
+            obs_map += obs_map_cur  #, kernel_list
+            times = _profiletime(task_tag, 'accumulate obs_map', times)
+
+            _summarizetime(task_tag+' (lpt2map mapmaking)', times)
 
             if not use_tqdm:
                 t3=time()
@@ -163,10 +234,8 @@ class lightcone_workspace():
                 tmap  += dtmap
                 tread_bar = tread / i
                 tmap_bar  = tmap  / i
-                log.usky_info(f"  {task_tag}: for iteration {i}/{n}: IO , mapping = {dtread:.3f} , {dtmap:.3f} (mean = {tread_bar:.3f} , {tmap_bar:.3f}; " +
+                log.usky_info(f"{task_tag}: for iteration {i}/{n}: IO , mapping = {dtread:.3f} , {dtmap:.3f} (mean = {tread_bar:.3f} , {tmap_bar:.3f}; " +
                               f"total = {tread:.3f} , {tmap:.3f})")
-
-        log.usky_info(f"obs_map type is {obs_map.dtype}")
 
         return backend.mpi_backend.reduce2map(obs_map)
     
