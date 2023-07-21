@@ -6,8 +6,6 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 from time import time
-from jax import experimental
-from jax.lax import fori_loop
 
 import logging
 log = logging.getLogger(__name__)

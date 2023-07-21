@@ -1,7 +1,6 @@
 import scipy.constants as cons
 from functools import partial
 import jax
-import jax.numpy as jnp
 
 comov_lastscatter_Gpc = 13.8 # in Gpc
 
