@@ -10,8 +10,6 @@
 
 void  ReportMapStatistics(float *, int, char *);
 int   SlabShellOverlap(float **, float, float);
-float Nu2Redshift(float);
-float Redshift2Nu(float);
 
 /* ************* ************* ************* ************* ************* ************* */
 /* ************* ************* ************* ************* ************* ************* */
