@@ -5,32 +5,46 @@
 FFTLIB = -L$(FFTW2_PATH)/lib -lsrfftw_mpi -lsfftw_mpi -lsrfftw -lsfftw
 FFTINC = -I$(FFTW2_PATH)/include 
 
-LIB = $FFTLIB 
-INC = $FFTINC 
- 
+CFTLIB = -L$(CFITS_PATH)/lib -lcfitsio -lz -lcurl
+CFTINC = -I$(CFITS_PATH)/include
+
+GSLLIB = -L$(GSL_PATH)/lib -lgsl -lgslcblas
+GSLINC = -I$(GSL_PATH)/include
+
+LIB = $FFTLIB $CFTLIB $GSLLIB
+INC = $FFTINC $CFTINC $GSLINC
+
 # OBJECT FILES
-srcdir  = ./src
+srcdir  = ./
 objs = \
      $(srcdir)/allocate.o \
      $(srcdir)/allvars.o \
-     $(srcdir)/commandline.o \
+     $(srcdir)/parameters.o \
+     $(srcdir)/chealpix.o \
+     $(srcdir)/globaltablevars.o \
+     $(srcdir)/makemaps.o \
      $(srcdir)/lpt.o \
      $(srcdir)/main.o \
      $(srcdir)/parallel_io.o \
+     $(srcdir)/cosmology.o \
      $(srcdir)/io.o \
-     $(srcdir)/memorytracking.o 
+     $(srcdir)/memorytracking.o \
+     $(srcdir)/tables.o 
 
-COMPILE_FLAGS = $(OPTIMIZE) $(FFTINC) $(OPTIONS)
-LINK_FLAGS    = $(OPTIMIZE) $(FFTLIB) 
+COMPILE_FLAGS = $(OPTIMIZE) $(FFTINC) $(GSLINC) $(CFTINC) $(OPTIONS) -DENABLE_FITSIO
+LINK_FLAGS    = $(OPTIMIZE) $(FFTLIB) $(GSLLIB) $(CFTLIB)
 
 EXEC = ./delta2s
 
 OBJS     = $(objs)
 
-.SUFFIXES: .o .C
+.SUFFIXES: .o .C .c
 
-$(srcdir)/%.o: $(srcdir)/%.C 
+$(srcdir)/%.o: $(srcdir)/%.C
 	$(C++) $(COMPILE_FLAGS) -c $< -o $@
+
+$(srcdir)/%.o: $(srcdir)/%.c
+	$(CC) $(COMPILE_FLAGS) -c $< -o $@
 
 $(EXEC): $(OBJS) 
 	$(C++) $(OBJS) $(LINK_FLAGS) -o $(EXEC)  

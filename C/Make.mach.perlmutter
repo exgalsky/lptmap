@@ -4,6 +4,10 @@
 
 OPTIMIZE =  
 FFTW2_PATH = /global/homes/m/malvarez/fftw-2.1.5-prlm
+GSL_PATH = /global/common/software/spackecp/perlmutter/e4s-22.05/75197/spack/opt/spack/cray-sles15-zen3/gcc-11.2.0/gsl-2.7-fhx3zdzzsac7koioqjzpx2uvg4wg4caw
+CFITS_PATH = /global/homes/m/malvarez/cfitsio-prlm
+
+CC = cc
 C++ = CC
 OPTIONS = -w 
 

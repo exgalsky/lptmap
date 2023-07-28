@@ -18,11 +18,16 @@ long Nlocal;    // Local slab dimension
 long int size;      // Local slab size 
 long int size_fftw;
 
+// Map size
+long mapsize;
+
 // Arrays
 fftw_real *delta, *delta1, *delta2, *sx1, *sy1, *sz1, *sx2, *sy2, *sz2;
+float *taumap,  *kszmap,  *kapmap;
+float *taumapl, *kszmapl, *kapmapl;
 
 // Parameters 
 struct Parameter Parameters;
 
 // Derived parameters
-float ovrt, oram;
+float DInit, ovrt, oram;
